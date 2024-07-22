@@ -7,8 +7,7 @@
     "build": "tsc",
     "start": "node ./dist/app.js",
     "dev": "nodemon",
-    "start:build": "tsc && node ./dist/app.js",
-    "heroku-postbuild": "yarn install --ignore-engines && yarn build"
+    "start:build": "tsc && node ./dist/app.js"
   },
   "keywords": [],
   "author": "",
