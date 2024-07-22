@@ -21,6 +21,8 @@ export class ConfigService implements IConfigService {
   get(key: string): string {
     const res = this.config[key];
 
+    console.log("res", res);
+    console.log("res[key]", res);
     if (!res) {
       throw new Error(`The key:${key} is not exist`);
     }
