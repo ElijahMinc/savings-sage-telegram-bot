@@ -1,3 +1,4 @@
+//@ts-ignore
 export class ApiError extends Error {
   status: number;
   errors: any[];

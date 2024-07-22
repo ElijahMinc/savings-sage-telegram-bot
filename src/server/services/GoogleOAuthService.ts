@@ -1,3 +1,4 @@
+//@ts-ignore
 import { google } from "googleapis";
 import { ConfigService } from "../../config/config.service";
 import { IConfigService } from "../../config/config.interface";
@@ -9,7 +10,6 @@ class GoogleOAuthService {
   oauth2Client: any;
 
   constructor(private readonly configService: IConfigService) {
-
     this.oauth2Client = new google.auth.OAuth2(
       this.configService.get("GOOGLE_CLIENT_ID"),
       this.configService.get("GOOGLE_CLIENT_SECRET"),

@@ -1,8 +1,8 @@
+//@ts-ignore
 import { google } from "googleapis";
 import { IConfigService } from "@config/config.interface";
 import { SCOPES } from "@/constants";
 import { ConfigService } from "@/config/config.service";
-import { AuthPlus } from "googleapis/build/src/googleapis";
 
 class GoogleOAuthService {
   oauth2Client: any;

@@ -1,3 +1,4 @@
+//@ts-ignore
 import { NextFunction, Request, Response } from "express";
 import googleOAuthService from "../services/GoogleOAuthService";
 
@@ -18,7 +19,6 @@ export class GoogleOAuthController {
         code as string
       );
       console.log("TOKENS", tokens);
-
 
       //! ПЕРЕДЕЛАТЬ!
       res.bot.telegram.sendMessage(

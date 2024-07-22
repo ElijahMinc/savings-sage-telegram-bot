@@ -1,3 +1,4 @@
+//@ts-ignore
 import express, { Express, Response } from "express";
 import configRouter from "./routers";
 import errorHandler from "./middleware/error.middleware";
