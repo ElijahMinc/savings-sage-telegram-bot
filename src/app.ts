@@ -36,7 +36,7 @@ class Bot {
 
     this.bot.use(
       new LocalSession<SessionData>({
-        database: "tmp/sessions.json",
+        database: "sessions.json",
       }).middleware()
     );
   }
