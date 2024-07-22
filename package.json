@@ -8,28 +8,29 @@
     "start": "node ./dist/app.js",
     "dev": "nodemon",
     "start:build": "tsc && node ./dist/app.js",
-    "heroku-postbuild": "npm install --legacy-peer-deps && npm run build"
+    "heroku-postbuild": "yarn install --ignore-engines && yarn build"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@eslint/js": "^9.7.0",
     "@types/dotenv": "^8.2.0",
     "@types/express": "^4.17.21",
     "@types/moment-timezone": "^0.5.30",
     "@types/node": "^20.14.10",
     "@types/node-cron": "^3.0.11",
-    "eslint": "^9.7.0",
     "globals": "^15.8.0",
     "nodemon": "^3.1.4",
-    "ts-node": "^10.9.2",
-    "typescript-eslint": "^7.16.0"
+    "ts-node": "^10.9.2"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.12.0",
+    "@typescript-eslint/eslint-plugin": "^7.16.1",
+    "@typescript-eslint/parser": "^7.16.1",
     "axios": "^1.7.2",
     "dotenv": "^16.4.5",
+    "eslint": "^9.7.0",
+    "eslint-plugin-import": "^2.29.1",
     "express": "^4.19.2",
     "googleapis": "^140.0.1",
     "module-alias": "^2.2.3",
