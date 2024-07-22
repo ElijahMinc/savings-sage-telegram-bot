@@ -51,5 +51,8 @@
     "@context": "dist/context",
     "@server": "dist/server",
     "@scenes": "dist/scenes"
+  },
+  "engines": {
+    "node": "18.18.x"
   }
 }
