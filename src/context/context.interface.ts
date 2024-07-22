@@ -21,6 +21,8 @@ export interface SessionData {
   income: IAmountData[];
   tags: string[];
   timezone: string;
+
+  isMonthlyFileReport: boolean;
 }
 
 export interface IBotContext extends Context {

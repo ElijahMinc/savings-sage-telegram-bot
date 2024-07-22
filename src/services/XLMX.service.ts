@@ -1,6 +1,8 @@
 import { IAmountData } from "@/context/context.interface";
 import { filterDataForLastMonth } from "@/helpers/filterDataForLastMonth.helper";
 import { formatDate } from "@/helpers/formatDate.helper";
+import { getTransactionDateFormat } from "@/helpers/getTransactionDateFormat";
+import moment from "moment";
 import { Stream } from "stream";
 import XLSX from "xlsx";
 
@@ -15,7 +17,10 @@ class XLMXService {
     return filePath;
   }
 
-  generateXlsxStream<T extends IAmountData>(data: T[]) {
+  generateXlsxStream<T extends IAmountData>(
+    data: T[],
+    type: "expenses" | "income"
+  ) {
     const { filteredData, startDate, endDate } =
       filterDataForLastMonth<T>(data);
 
@@ -31,7 +36,7 @@ class XLMXService {
 
     const ws = XLSX.utils.json_to_sheet(transformedData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+    XLSX.utils.book_append_sheet(wb, ws, type ? "Expenses" : "Incomes");
 
     const wscols = [
       { wch: 20 }, // id
@@ -47,6 +52,23 @@ class XLMXService {
     readStream.end(xlsxBuffer);
 
     return { readStream, filteredData, startDate, endDate };
+  }
+
+  getReadStreamByData<T extends IAmountData>(data: T[]) {
+    const { readStream, startDate, endDate, filteredData } =
+      xlmxService.generateXlsxStream(data, "expenses");
+
+    const allToday = filteredData.every((item) =>
+      moment(item.created_date).isSame(moment(), "day")
+    );
+
+    const filename = allToday
+      ? `transactions_${getTransactionDateFormat()}.xlsx`
+      : `transactions_${getTransactionDateFormat(
+          startDate
+        )}_to_${getTransactionDateFormat(endDate)}.xlsx`;
+
+    return { readStream, filename };
   }
 }
 

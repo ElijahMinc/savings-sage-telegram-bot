@@ -3,8 +3,6 @@ import { IBotContext } from "@context/context.interface";
 import { Command } from "./command.class";
 import { xlmxService } from "@/services/XLMX.service";
 import { COMMAND_NAMES } from "@/constants";
-import moment from "moment";
-
 export class XLMXCommand extends Command {
   constructor(public bot: Telegraf<IBotContext>) {
     super(bot);
@@ -18,20 +16,9 @@ export class XLMXCommand extends Command {
         return ctx.reply("There is no data");
       }
 
-      const { readStream, startDate, endDate, filteredData } =
-        xlmxService.generateXlsxStream(data);
+      const { filename, readStream } = xlmxService.getReadStreamByData(data);
 
-      const allToday = filteredData.every((item) =>
-        moment(item.created_date).isSame(moment(), "day")
-      );
-
-      const filename = allToday
-        ? `transactions_${moment().format("DD-MM-YYYY")}.xlsx`
-        : `transactions_${startDate.format("DD-MM-YYYY")}_to_${endDate.format(
-            "DD-MM-YYYY"
-          )}.xlsx`;
-
-      ctx.reply("Your report with :");
+      ctx.reply("Your report below:");
 
       ctx
         .replyWithDocument({

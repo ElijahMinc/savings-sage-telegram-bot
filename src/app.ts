@@ -31,7 +31,6 @@ class Bot {
     this.bot.use(
       new LocalSession<SessionData>({
         database: "sessions.json",
-        // state: defaultStateValues,
       }).middleware()
     );
   }

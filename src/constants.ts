@@ -46,3 +46,5 @@ export const regexAllSymbols = new RegExp(
 );
 
 export const regexSlash = new RegExp(/\//);
+
+export const transactionDefaultFormatDate = "DD-MM-YYYY";

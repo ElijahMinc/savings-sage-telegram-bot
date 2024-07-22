@@ -3,11 +3,13 @@ import { Context, Markup, Scenes } from "telegraf";
 import { Scenario } from "./scene.class";
 import { Update } from "telegraf/typings/core/types/typegram";
 import { CURRENCIES, IAmountData } from "@/context/context.interface";
-import axios from "axios";
 import moment from "moment";
 import "moment-timezone";
 import { containsSlash } from "@/helpers/containsHash.helper";
 import { containsSpecialChars } from "@/helpers/containsSpecialChars.helper";
+import cron from "node-cron";
+import { xlmxService } from "@/services/XLMX.service";
+import cronTaskTrackerService from "@/services/CronTaskTrackerService";
 
 enum TRANSACTION_COMMANDS {
   CHOOSE_TAG = "CHOOSE_TAG",
@@ -168,6 +170,58 @@ export class ExpenseTransactionScene extends Scenario {
           ),
         ])
       );
+
+      if (session?.isMonthlyFileReport) {
+        return;
+      }
+
+      session.isMonthlyFileReport = true;
+
+      const cronTask = cron.schedule(
+        "0 0 1 * *",
+        () => {
+          const data = session?.expenses;
+
+          if (!data || !data?.length) {
+            return ctx.reply("There is no data");
+          }
+
+          const { filename, readStream } =
+            xlmxService.getReadStreamByData(data);
+
+          ctx
+            .replyWithDocument({
+              source: readStream,
+              filename,
+            })
+            .then(() => {
+              session.expenses = [];
+              session.isMonthlyFileReport = false;
+
+              const cronTaskBySessionId = cronTaskTrackerService.get(
+                session.id
+              );
+
+              cronTaskBySessionId?.stop();
+
+              cronTaskTrackerService.delete(session.id);
+            })
+            .then(() => {
+              ctx.replyWithMarkdown(
+                `The expense session has been recorded and saved in the XLSX file ${filename} for the monthly report. The session has been reset in the application.`
+              );
+            })
+            .catch((error) => {
+              console.error("Error sending document:", error);
+            });
+        },
+        {
+          scheduled: true,
+          timezone: session.timezone,
+        }
+      );
+
+      cronTaskTrackerService.set(session.id, cronTask);
     });
   }
   calculateExpensesLastHour(expenses: IAmountData[]) {
