@@ -68,8 +68,9 @@ class Bot {
     for (const command of this.commands) {
       command.handle();
     }
-
+    console.time("Launching time");
     this.bot.launch();
+    console.timeEnd("Launching time");
   }
 }
 
