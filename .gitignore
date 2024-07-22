@@ -1,0 +1,5 @@
+/node_modules
+/dist
+.env
+sessions.json
+saving-sage-bot-58db72977bdf.json
