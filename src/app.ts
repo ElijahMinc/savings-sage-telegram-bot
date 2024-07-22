@@ -28,6 +28,8 @@ class Bot {
   constructor(private readonly configService: IConfigService) {
     this.bot = new Telegraf<IBotContext>(this.configService.get("BOT_TOKEN"));
 
+    this.bot.use(Telegraf.log()).middleware();
+
     this.bot.use(
       new LocalSession<SessionData>({
         database: "tmp/sessions.json",
