@@ -1,3 +1,5 @@
+import crypto from "crypto";
+
 export enum COMMAND_NAMES {
   START = "start",
   TAGS = "manage_tags",
@@ -48,3 +50,5 @@ export const regexAllSymbols = new RegExp(
 export const regexSlash = new RegExp(/\//);
 
 export const transactionDefaultFormatDate = "DD-MM-YYYY";
+
+export const iv = crypto.randomBytes(16); // generation initial vector

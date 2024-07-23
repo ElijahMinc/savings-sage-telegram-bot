@@ -10,6 +10,8 @@ import { containsSpecialChars } from "@/helpers/containsSpecialChars.helper";
 import cron from "node-cron";
 import { xlmxService } from "@/services/XLMX.service";
 import cronTaskTrackerService from "@/services/CronTaskTrackerService";
+import { encrypt, IEncryptedData } from "@/helpers/encrypt";
+import { decrypt } from "@/helpers/decrypt";
 
 enum TRANSACTION_COMMANDS {
   CHOOSE_TAG = "CHOOSE_TAG",
@@ -139,7 +141,7 @@ export class ExpenseTransactionScene extends Scenario {
         ...(expenses ?? []),
         {
           id: Date.now(),
-          amount: textAsNumber,
+          amount: encrypt(textAsNumber.toString()),
           tag: state.choosenTag,
           created_date: new Date(),
           currency: CURRENCIES.EURO,
@@ -160,7 +162,6 @@ export class ExpenseTransactionScene extends Scenario {
 
         Your primary tag as category: *${state.choosenTag}*;
 
-        Your timezone is: *${session.timezone}*;
         `,
         Markup.inlineKeyboard([
           Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
@@ -230,7 +231,8 @@ export class ExpenseTransactionScene extends Scenario {
       (expense) => new Date(expense.created_date) > oneHourAgo
     );
     return lastHourExpenses.reduce(
-      (total, expense) => total + expense.amount,
+      (total, expense) =>
+        total + Number(decrypt(expense.amount as IEncryptedData)),
       0
     );
   }
@@ -242,6 +244,10 @@ export class ExpenseTransactionScene extends Scenario {
       moment(expense.created_date).tz(timezone).isSameOrAfter(startOfDay)
     );
 
-    return todayExpenses.reduce((total, expense) => total + expense.amount, 0);
+    return todayExpenses.reduce(
+      (total, expense) =>
+        total + Number(decrypt(expense.amount as IEncryptedData)),
+      0
+    );
   }
 }

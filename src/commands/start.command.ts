@@ -11,9 +11,6 @@ export class StartCommand extends Command {
 
   handle(): void {
     this.bot.start(async (ctx) => {
-      const timezone = await getTimezone();
-      ctx.session.timezone = timezone;
-
       ctx.reply(
         `Hello! Please choose primary tag first using /${COMMAND_NAMES.TAGS} command`
       );

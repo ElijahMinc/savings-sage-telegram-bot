@@ -13,7 +13,7 @@ import {
 } from "@/constants";
 import { IConfigService } from "@config/config.interface";
 import { ConfigService } from "@config/config.service";
-import { IBotContext, SessionData } from "@context/context.interface";
+import { IBotContext } from "@context/context.interface";
 import { ModeCommand } from "@commands/mode.command";
 import { TagCommand } from "@commands/tag.command";
 import { TagScene } from "@scenes/tag.scene";
@@ -21,6 +21,13 @@ import { Scenario } from "./scenes/scene.class";
 import { TransactionCommand } from "./commands/transaction.command";
 import { ExpenseTransactionScene } from "./scenes/expense-transaction.scene";
 import { XLMXCommand } from "./commands/xlmx.command";
+import { MongoClient } from "mongodb";
+import { session } from "telegraf-session-mongodb";
+
+const CONNECT_DB = process.env.MONGODB_CONNECT_DB_URL!.replace(
+  "<password>",
+  process.env.MONGODB_CONNECT_DB_PASSWORD!
+);
 
 class Bot {
   bot: Telegraf<IBotContext>;
@@ -34,11 +41,11 @@ class Bot {
 
     this.bot.use(Telegraf.log()).middleware();
 
-    this.bot.use(
-      new LocalSession<SessionData>({
-        database: "sessions.json",
-      }).middleware()
-    );
+    // this.bot.use(
+    //   new LocalSession<SessionData>({
+    //     database: "sessions.json",
+    //   }).middleware()
+    // ); // LOCAL SESSION
   }
 
   init() {
@@ -80,4 +87,23 @@ class Bot {
 
 const bot = new Bot(new ConfigService());
 
-bot.init();
+const start = async () => {
+  try {
+    const client = await MongoClient.connect(CONNECT_DB);
+    const db = client.db();
+    console.log("Connected to DB");
+
+    const sessions = session(db, {
+      sessionName: "session",
+      collectionName: "sessions",
+    });
+
+    bot.bot.use(sessions);
+
+    bot.init();
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+start();

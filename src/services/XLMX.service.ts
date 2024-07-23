@@ -1,4 +1,6 @@
 import { IAmountData } from "@/context/context.interface";
+import { decrypt } from "@/helpers/decrypt";
+import { IEncryptedData } from "@/helpers/encrypt";
 import { filterDataForLastMonth } from "@/helpers/filterDataForLastMonth.helper";
 import { formatDate } from "@/helpers/formatDate.helper";
 import { getTransactionDateFormat } from "@/helpers/getTransactionDateFormat";
@@ -26,9 +28,11 @@ class XLMXService {
 
     let total = 0;
     const transformedData = filteredData.map((item) => {
-      total += item.amount;
+      const amount = Number(decrypt(item.amount as IEncryptedData));
+      total += amount;
       return {
         ...item,
+        amount,
         created_date: formatDate(item.created_date),
       };
     });

@@ -1,3 +1,4 @@
+import { IEncryptedData } from "@/helpers/encrypt";
 import { Context } from "telegraf";
 
 export enum CURRENCIES {
@@ -9,7 +10,7 @@ export enum CURRENCIES {
 export interface IAmountData {
   id: number;
   tag: string;
-  amount: number;
+  amount: IEncryptedData | number;
   currency: CURRENCIES;
   created_date: Date;
 }

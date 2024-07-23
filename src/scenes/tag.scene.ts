@@ -4,6 +4,7 @@ import { Scenario } from "./scene.class";
 import { Update } from "telegraf/typings/core/types/typegram";
 import { containsSlash } from "@/helpers/containsHash.helper";
 import { containsSpecialChars } from "@/helpers/containsSpecialChars.helper";
+import { compressWord } from "@/helpers/compressWord";
 
 enum TAG_COMMANDS {
   GET_TAGS = "GET_TAGS",
@@ -137,7 +138,9 @@ export class TagScene extends Scenario {
       }
 
       let tagsSessionData = (ctx as any).session.tags;
-      const tag = messageText.trim().toLowerCase();
+      const tag = compressWord(messageText);
+
+      console.log("tag", tag);
 
       if (!tag) {
         ctx.reply("The tag cannot be empty. Please enter the tag.");
