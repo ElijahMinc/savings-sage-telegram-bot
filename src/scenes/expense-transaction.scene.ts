@@ -49,7 +49,7 @@ export class ExpenseTransactionScene extends Scenario {
 
     this.scene.action(SCENES_NAMES.EXIT_FROM_SCENE, (ctx) => {
       (ctx as any).scene.leave();
-      ctx.editMessageText("You've left the scene and came back");
+      ctx.reply("You've left the scene and came back");
     });
 
     this.scene.action(TRANSACTION_COMMANDS.CHOOSE_TAG, (ctx) => {
@@ -71,7 +71,7 @@ export class ExpenseTransactionScene extends Scenario {
       ctx.reply(
         "Select one of the tags:",
         Markup.inlineKeyboard([
-          ...buttons,
+          [...buttons],
           [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
         ])
       );
@@ -82,9 +82,12 @@ export class ExpenseTransactionScene extends Scenario {
 
       (ctx as any).scene.state.choosenTag = tagToChoose;
 
-      ctx.reply(`The tag "${tagToChoose}" has been selected`);
       ctx.reply(
-        `Please input your amount:`,
+        `The tag *"${tagToChoose}"* has been selected.
+
+        1) Enter number value;
+        2) Press Exit button to leave;
+        `,
         Markup.inlineKeyboard([
           Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
         ])
@@ -100,9 +103,7 @@ export class ExpenseTransactionScene extends Scenario {
 
       if (containsSpecialChars(messageText) || containsSlash(messageText)) {
         ctx.reply(
-          `You are in /transaction scene. 
-          
-          Please enter value as number or leave this scene pressing exit button below`,
+          `You are in /transaction scene. Please enter value as number or leave this scene pressing exit button below`,
           Markup.inlineKeyboard([
             Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
           ])
