@@ -9,12 +9,13 @@ import {
 import moment from "moment";
 import "moment-timezone";
 import { containsSlash } from "@/helpers/containsHash.helper";
-import { containsSpecialChars } from "@/helpers/containsSpecialChars.helper";
 import cron from "node-cron";
 import { xlmxService } from "@/services/XLMX.service";
 import cronTaskTrackerService from "@/services/CronTaskTrackerService";
 import { encrypt, IEncryptedData } from "@/helpers/encrypt";
 import { decrypt } from "@/helpers/decrypt";
+import { containsStrictNumber } from "@/helpers/containsStrictNumber.helper";
+import { containsSpecialChars } from "@/helpers/containsSpecialChars.helper";
 
 enum TRANSACTION_COMMANDS {
   CHOOSE_TAG = "CHOOSE_TAG",
@@ -101,7 +102,7 @@ export class ExpenseTransactionScene extends Scenario {
       const messageText = ctx.message?.text;
       const textAsNumber = Number(messageText.trim().toLowerCase());
 
-      if (containsSpecialChars(messageText) || containsSlash(messageText)) {
+      if (containsSpecialChars(messageText)) {
         ctx.reply(
           `You are in /transaction scene. Please enter value as number or leave this scene pressing exit button below`,
           Markup.inlineKeyboard([
@@ -111,9 +112,19 @@ export class ExpenseTransactionScene extends Scenario {
         return;
       }
 
-      if (!textAsNumber || isNaN(textAsNumber)) {
+      if (!textAsNumber && isNaN(textAsNumber)) {
         ctx.reply(
           "Please, input only numbers",
+          Markup.inlineKeyboard([
+            Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
+          ])
+        );
+        return;
+      }
+
+      if (!containsStrictNumber(messageText)) {
+        ctx.reply(
+          "Incorrect value",
           Markup.inlineKeyboard([
             Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
           ])
@@ -150,8 +161,6 @@ export class ExpenseTransactionScene extends Scenario {
         return;
       }
 
-      const expenses = session.expenses;
-
       const transaction: IAmountData = {
         id: Date.now(),
         amount: encrypt(textAsNumber.toString()),
@@ -160,7 +169,7 @@ export class ExpenseTransactionScene extends Scenario {
         currency: CURRENCIES.EURO,
       };
 
-      session.expenses = [...(expenses ?? []), transaction];
+      session.expenses = [...(session.expenses ?? []), transaction];
 
       const totalExpensesToday = this.calculateExpensesToday(session.expenses);
 
@@ -216,16 +225,17 @@ export class ExpenseTransactionScene extends Scenario {
               session.isDailyFileReport = false;
 
               const cronTaskBySessionId = cronTaskTrackerService.get(
-                session.chatId.toString()
+                ctx.from.id.toString()
               );
 
               cronTaskBySessionId?.stop();
 
-              cronTaskTrackerService.delete(session.chatId.toString());
+              cronTaskTrackerService.delete(ctx.from.id.toString());
             })
             .then(() => {
               ctx.replyWithMarkdown(
-                `The expense session has been recorded and saved in the XLSX file ${filename} for the monthly report. The session has been reset in the application.`
+                `The expense session has been recorded and saved in the XLSX file ${filename} for the monthly report (UTC time). 
+                *The session has been reset in the application.*`
               );
             })
             .catch((error) => {
@@ -238,7 +248,7 @@ export class ExpenseTransactionScene extends Scenario {
         }
       );
 
-      cronTaskTrackerService.set(session.chatId.toString(), cronTask);
+      cronTaskTrackerService.set(ctx.from.id.toString(), cronTask);
     });
   }
   calculateExpensesLastHour(expenses: IAmountData[]) {

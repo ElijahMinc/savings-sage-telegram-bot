@@ -28,7 +28,6 @@ export interface IAmountData {
 }
 
 export interface SessionData {
-  chatId: number;
   mode: "income" | "expense";
   expenses: IAmountData[];
   income: IAmountData[];

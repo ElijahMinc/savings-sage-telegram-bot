@@ -18,7 +18,7 @@ export class XLMXCommand extends Command {
 
       const { filename, readStream } = xlmxService.getReadStreamByData(data);
 
-      ctx.reply("Your report below:");
+      ctx.reply("Your report below (UTC):");
 
       ctx
         .replyWithDocument({
