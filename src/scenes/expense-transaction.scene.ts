@@ -20,7 +20,6 @@ import cronTaskTrackerService from "@/services/CronTaskTrackerService";
 import { encrypt, IEncryptedData } from "@/helpers/encrypt";
 import { decrypt } from "@/helpers/decrypt";
 import { containsStrictNumber } from "@/helpers/containsStrictNumber.helper";
-import { containsSpecialChars } from "@/helpers/containsSpecialChars.helper";
 
 enum TRANSACTION_COMMANDS {
   CHOOSE_TAG = "CHOOSE_TAG",
@@ -97,7 +96,7 @@ export class ExpenseTransactionScene extends Scenario {
       const messageText = ctx.message?.text;
       const textAsNumber = Number(messageText.trim().toLowerCase());
 
-      if (containsSpecialChars(messageText)) {
+      if (containsSlash(messageText)) {
         ctx.reply(
           `You are in /${COMMAND_NAMES.TRANSACTION} scene. Please enter value as number or leave this scene pressing exit button below`,
           Markup.inlineKeyboard([EXIT_BUTTON])
