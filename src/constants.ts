@@ -52,3 +52,5 @@ export const regexSlash = new RegExp(/\//);
 export const transactionDefaultFormatDate = "DD-MM-YYYY";
 
 export const iv = crypto.randomBytes(16); // generation initial vector
+
+export const dailyReportCRONMask = '0 0 * * *'

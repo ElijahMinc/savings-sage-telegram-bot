@@ -1,4 +1,4 @@
-import { SCENES_NAMES } from "@/constants";
+import { dailyReportCRONMask, SCENES_NAMES } from "@/constants";
 import { Context, Markup, Scenes } from "telegraf";
 import { Scenario } from "./scene.class";
 import { Update } from "telegraf/typings/core/types/typegram";
@@ -174,7 +174,7 @@ export class ExpenseTransactionScene extends Scenario {
       session.isMonthlyFileReport = true;
 
       const cronTask = cron.schedule(
-        "0 0 1 * *",
+        dailyReportCRONMask,
         () => {
           const data = session?.expenses;
 
