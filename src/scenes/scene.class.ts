@@ -1,9 +1,10 @@
-import { Context, Scenes } from "telegraf";
-import { Update } from "telegraf/typings/core/types/typegram";
-
+import { IBotContext, SceneContexts } from "@/context/context.interface";
+import { Scenes } from "telegraf";
 
 export abstract class Scenario {
-  scene: Scenes.BaseScene<Context<Update>> | undefined;
+  scene:
+    | Scenes.BaseScene<SceneContexts<"TagScene" | "ExpenseTransactionScene">>
+    | undefined;
 
   abstract handle(): void;
 

@@ -1,5 +1,5 @@
 import { Telegraf } from "telegraf";
-import { IBotContext } from "@context/context.interface";
+import { IBotContext, SceneContexts } from "@context/context.interface";
 import { Command } from "./command.class";
 import { xlmxService } from "@/services/XLMX.service";
 import { COMMAND_NAMES } from "@/constants";

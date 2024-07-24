@@ -1,8 +1,11 @@
 import { dailyReportCRONMask, SCENES_NAMES } from "@/constants";
-import { Context, Markup, Scenes } from "telegraf";
+import { Markup, Scenes } from "telegraf";
 import { Scenario } from "./scene.class";
-import { Update } from "telegraf/typings/core/types/typegram";
-import { CURRENCIES, IAmountData } from "@/context/context.interface";
+import {
+  CURRENCIES,
+  IAmountData,
+  SceneContexts,
+} from "@/context/context.interface";
 import moment from "moment";
 import "moment-timezone";
 import { containsSlash } from "@/helpers/containsHash.helper";
@@ -19,9 +22,8 @@ enum TRANSACTION_COMMANDS {
 }
 
 export class ExpenseTransactionScene extends Scenario {
-  scene: Scenes.BaseScene<Context<Update>> = new Scenes.BaseScene(
-    SCENES_NAMES.EXPENSES_SCENE
-  );
+  scene: Scenes.BaseScene<SceneContexts<"ExpenseTransactionScene">> =
+    new Scenes.BaseScene(SCENES_NAMES.EXPENSES_SCENE);
 
   constructor() {
     super();
@@ -34,18 +36,20 @@ export class ExpenseTransactionScene extends Scenario {
       ctx.reply(
         text,
         Markup.inlineKeyboard([
-          Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-          Markup.button.callback(
-            "Choose primary tag",
-            TRANSACTION_COMMANDS.CHOOSE_TAG
-          ),
+          [
+            Markup.button.callback(
+              "Choose primary tag",
+              TRANSACTION_COMMANDS.CHOOSE_TAG
+            ),
+          ],
+          [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
         ])
       );
     });
 
     this.scene.action(SCENES_NAMES.EXIT_FROM_SCENE, (ctx) => {
       (ctx as any).scene.leave();
-      ctx.editMessageText("You've come back");
+      ctx.editMessageText("You've left the scene and came back");
     });
 
     this.scene.action(TRANSACTION_COMMANDS.CHOOSE_TAG, (ctx) => {
@@ -61,10 +65,16 @@ export class ExpenseTransactionScene extends Scenario {
         return;
       }
 
-      const buttons = tags.map((tag: any) =>
+      const buttons = tags.map((tag: string) =>
         Markup.button.callback(tag, `choose_${tag}`)
       );
-      ctx.reply("Select one of the tags:", Markup.inlineKeyboard(buttons));
+      ctx.reply(
+        "Select one of the tags:",
+        Markup.inlineKeyboard([
+          ...buttons,
+          [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
+        ])
+      );
     });
 
     this.scene.action(/choose_(.+)/, (ctx) => {
@@ -72,7 +82,7 @@ export class ExpenseTransactionScene extends Scenario {
 
       (ctx as any).scene.state.choosenTag = tagToChoose;
 
-      ctx.reply(`Tag "${tagToChoose}" was choosen.`);
+      ctx.reply(`The tag "${tagToChoose}" has been selected`);
       ctx.reply(
         `Please input your amount:`,
         Markup.inlineKeyboard([
@@ -82,12 +92,17 @@ export class ExpenseTransactionScene extends Scenario {
     });
 
     this.scene.on("text", (ctx) => {
+      const session = ctx.session;
+      const state = ctx.scene.state;
+
       const messageText = ctx.message?.text;
       const textAsNumber = Number(messageText.trim().toLowerCase());
 
       if (containsSpecialChars(messageText) || containsSlash(messageText)) {
         ctx.reply(
-          `If you want to change this Scene to another one use button below`,
+          `You are in /transaction scene. 
+          
+          Please enter value as number or leave this scene pressing exit button below`,
           Markup.inlineKeyboard([
             Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
           ])
@@ -109,7 +124,7 @@ export class ExpenseTransactionScene extends Scenario {
 
       if (isInvalidNumber) {
         ctx.reply(
-          "Value can't be less 0 or be equal 0",
+          "Number value can't be less 0 or be equal 0",
           Markup.inlineKeyboard([
             Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
           ])
@@ -117,61 +132,66 @@ export class ExpenseTransactionScene extends Scenario {
         return;
       }
 
-      const session = (ctx as any).session;
-      const state = (ctx as any).scene.state;
-
       if (!("choosenTag" in state)) {
         ctx.reply(
-          "Please select tag first",
+          "Please select tag as category first",
           Markup.inlineKeyboard([
-            Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-            Markup.button.callback(
-              "Choose tag first",
-              TRANSACTION_COMMANDS.CHOOSE_TAG
-            ),
+            [
+              Markup.button.callback(
+                "Choose tag",
+                TRANSACTION_COMMANDS.CHOOSE_TAG
+              ),
+            ],
+            [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
           ])
         );
+
+        return;
       }
 
       const expenses = session.expenses;
 
-      session.expenses = [
-        ...(expenses ?? []),
-        {
-          id: Date.now(),
-          amount: encrypt(textAsNumber.toString()),
-          tag: state.choosenTag,
-          created_date: new Date(),
-          currency: CURRENCIES.EURO,
-        },
-      ];
+      const transaction: IAmountData = {
+        id: Date.now(),
+        amount: encrypt(textAsNumber.toString()),
+        tag: state.choosenTag as string,
+        created_date: new Date(),
+        currency: CURRENCIES.EURO,
+      };
+
+      session.expenses = [...(expenses ?? []), transaction];
 
       const totalExpensesToday = this.calculateExpensesToday(session.expenses);
 
+      const monospaceTransactionId = "`" + transaction.id + "`";
+
       ctx.replyWithMarkdown(
         `Noted. 
+
+        Transaction Id: ${monospaceTransactionId};
 
         You've spent: *${textAsNumber} ${CURRENCIES.EURO}*;
 
         Todays Total: *${totalExpensesToday} ${CURRENCIES.EURO}*;
 
         Your primary tag as category: *${state.choosenTag}*;
-
         `,
         Markup.inlineKeyboard([
-          Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-          Markup.button.callback(
-            "Choose another primary tag",
-            TRANSACTION_COMMANDS.CHOOSE_TAG
-          ),
+          [
+            Markup.button.callback(
+              "Choose another primary tag",
+              TRANSACTION_COMMANDS.CHOOSE_TAG
+            ),
+          ],
+          [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
         ])
       );
 
-      if (session?.isMonthlyFileReport) {
+      if (session?.isDailyFileReport) {
         return;
       }
 
-      session.isMonthlyFileReport = true;
+      session.isDailyFileReport = true;
 
       const cronTask = cron.schedule(
         dailyReportCRONMask,
@@ -192,15 +212,15 @@ export class ExpenseTransactionScene extends Scenario {
             })
             .then(() => {
               session.expenses = [];
-              session.isMonthlyFileReport = false;
+              session.isDailyFileReport = false;
 
               const cronTaskBySessionId = cronTaskTrackerService.get(
-                session.id
+                session.chatId.toString()
               );
 
               cronTaskBySessionId?.stop();
 
-              cronTaskTrackerService.delete(session.id);
+              cronTaskTrackerService.delete(session.chatId.toString());
             })
             .then(() => {
               ctx.replyWithMarkdown(
@@ -217,7 +237,7 @@ export class ExpenseTransactionScene extends Scenario {
         }
       );
 
-      cronTaskTrackerService.set(session.id, cronTask);
+      cronTaskTrackerService.set(session.chatId.toString(), cronTask);
     });
   }
   calculateExpensesLastHour(expenses: IAmountData[]) {

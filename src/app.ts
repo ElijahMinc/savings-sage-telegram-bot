@@ -52,14 +52,14 @@ class Bot {
     this.bot.telegram.setMyCommands(commands);
 
     this.commands = [
-      // START
-      new StartCommand(this.bot),
-
       // Scene to commands trigger
       new XLMXCommand(this.bot),
       new ModeCommand(this.bot),
       new TagCommand(this.bot),
       new TransactionCommand(this.bot),
+
+      // START
+      new StartCommand(this.bot),
     ];
 
     this.scenarios = [new TagScene(), new ExpenseTransactionScene()];
@@ -70,9 +70,7 @@ class Bot {
       scenes.push(scenario.scene);
     });
 
-    const stages: any = new Scenes.Stage(scenes, {
-      // ttl: DEFAULT_VALUE_SCENE_LIFECYCLE_IN_SECONDS,
-    });
+    const stages: any = new Scenes.Stage(scenes);
 
     this.bot.use(stages.middleware());
 

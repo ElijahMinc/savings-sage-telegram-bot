@@ -1,10 +1,13 @@
-import { SCENES_NAMES } from "@/constants";
+import {
+  DEFAULT_VALUE_SCENE_LIFECYCLE_IN_SECONDS,
+  SCENES_NAMES,
+} from "@/constants";
 import { Context, Markup, Scenes } from "telegraf";
 import { Scenario } from "./scene.class";
-import { Update } from "telegraf/typings/core/types/typegram";
 import { containsSlash } from "@/helpers/containsHash.helper";
 import { containsSpecialChars } from "@/helpers/containsSpecialChars.helper";
 import { compressWord } from "@/helpers/compressWord";
+import { IBotContext, SceneContexts } from "@/context/context.interface";
 
 enum TAG_COMMANDS {
   GET_TAGS = "GET_TAGS",
@@ -13,8 +16,14 @@ enum TAG_COMMANDS {
 }
 
 export class TagScene extends Scenario {
-  scene: Scenes.BaseScene<Context<Update>> = new Scenes.BaseScene(
-    SCENES_NAMES.TAG_SCENE
+  scene: Scenes.BaseScene<SceneContexts<"TagScene">> = new Scenes.BaseScene(
+    SCENES_NAMES.TAG_SCENE,
+    {
+      ttl: DEFAULT_VALUE_SCENE_LIFECYCLE_IN_SECONDS,
+      handlers: [],
+      enterHandlers: [],
+      leaveHandlers: [],
+    }
   );
 
   constructor() {
@@ -24,12 +33,15 @@ export class TagScene extends Scenario {
   handle() {
     this.scene.enter((ctx) =>
       ctx.reply(
-        "You are in 'Manage tags scene'",
+        "Manage your tags here",
+
         Markup.inlineKeyboard([
-          Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-          Markup.button.callback("Get Tags", TAG_COMMANDS.GET_TAGS),
-          Markup.button.callback("Add Tag", TAG_COMMANDS.ADD_TAG),
-          Markup.button.callback("Remove Tag", TAG_COMMANDS.REMOVE_TAG),
+          [
+            Markup.button.callback("Get Tags", TAG_COMMANDS.GET_TAGS),
+            Markup.button.callback("Add Tag", TAG_COMMANDS.ADD_TAG),
+            Markup.button.callback("Remove Tag", TAG_COMMANDS.REMOVE_TAG),
+          ],
+          [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
         ])
       )
     );
@@ -44,14 +56,14 @@ export class TagScene extends Scenario {
     });
 
     this.scene.action(TAG_COMMANDS.GET_TAGS, (ctx) => {
-      const tags = (ctx as any).session.tags;
+      const tags = ctx.session.tags;
 
       if (!tags?.length) {
         ctx.reply(
           "You have no one tags. Please, create one",
           Markup.inlineKeyboard([
-            Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-            Markup.button.callback("Add Tag", TAG_COMMANDS.ADD_TAG),
+            [Markup.button.callback("Add Tag", TAG_COMMANDS.ADD_TAG)],
+            [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
           ])
         );
 
@@ -62,55 +74,55 @@ export class TagScene extends Scenario {
         tags.join(","),
 
         Markup.inlineKeyboard([
-          Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-          Markup.button.callback("Add Tag", TAG_COMMANDS.ADD_TAG),
-          Markup.button.callback("Remove Tag", TAG_COMMANDS.REMOVE_TAG),
+          [Markup.button.callback("Add Tag", TAG_COMMANDS.ADD_TAG)],
+          [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
         ])
       );
     });
 
     this.scene.action(SCENES_NAMES.EXIT_FROM_SCENE, (ctx) => {
-      (ctx as any).scene.leave();
-      ctx.editMessageText("You've come back");
+      ctx.scene.leave();
+      ctx.reply("You've left the scene and came back");
     });
 
     this.scene.action(TAG_COMMANDS.REMOVE_TAG, (ctx) => {
-      const tags = (ctx as any).session.tags || [];
+      const tags = ctx.session.tags || [];
 
       if (!tags.length) {
         ctx.reply(
           "There are no tags to delete.",
           Markup.inlineKeyboard([
-            Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-            Markup.button.callback("Add Tag", TAG_COMMANDS.ADD_TAG),
+            [Markup.button.callback("Add Tag", TAG_COMMANDS.ADD_TAG)],
+            [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
           ])
         );
         return;
       }
 
-      const buttons = tags.map((tag: any) =>
+      const buttons = tags.map((tag: string) =>
         Markup.button.callback(tag, `remove_${tag}`)
       );
       ctx.reply(
         "Select tag to delete:",
         Markup.inlineKeyboard([
-          Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-          ...buttons,
+          [...buttons],
+          [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
         ])
       );
     });
 
     this.scene.action(/remove_(.+)/, (ctx) => {
       const tagToRemove = ctx.match[1];
-      (ctx as any).session.tags = (ctx as any).session.tags.filter(
-        (tag: string) => tag !== tagToRemove
-      );
+      const session = ctx.session;
+
+      session.tags = session.tags.filter((tag: string) => tag !== tagToRemove);
       ctx.reply(`Tag "${tagToRemove}" was deleted.`);
 
-      (ctx as any).scene.reenter();
+      ctx.scene.reenter();
     });
 
     this.scene.on("text", (ctx) => {
+      const session = ctx.session;
       const messageText = ctx.message?.text;
 
       if (!messageText) return;
@@ -137,10 +149,31 @@ export class TagScene extends Scenario {
         return;
       }
 
-      let tagsSessionData = (ctx as any).session.tags;
-      const tag = compressWord(messageText);
+      const isNumber = !isNaN(Number(messageText));
 
-      console.log("tag", tag);
+      if (isNumber) {
+        ctx.reply(
+          `The tag name should be text`,
+          Markup.inlineKeyboard([
+            Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
+          ])
+        );
+        return;
+      }
+
+      if (messageText.length >= 10) {
+        ctx.reply(
+          `The length of the tag name should not be longer than 10 characters`,
+          Markup.inlineKeyboard([
+            Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
+          ])
+        );
+        return;
+      }
+
+      let tagsSessionData = session.tags;
+
+      const tag = compressWord(messageText);
 
       if (!tag) {
         ctx.reply("The tag cannot be empty. Please enter the tag.");
@@ -153,27 +186,33 @@ export class TagScene extends Scenario {
 
       if (!tagsSessionData.includes(tag)) {
         tagsSessionData.push(`#${tag}`);
+
         ctx.reply(
-          `Tag "#${tag}" was added.`,
+          `Tag "${tag}" was added.`,
 
           Markup.inlineKeyboard([
-            Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-            Markup.button.callback("Get Tags", TAG_COMMANDS.GET_TAGS),
-            Markup.button.callback("Add new one", TAG_COMMANDS.ADD_TAG),
+            [
+              Markup.button.callback("Get Tags", TAG_COMMANDS.GET_TAGS),
+              Markup.button.callback("Add new one", TAG_COMMANDS.ADD_TAG),
+              Markup.button.callback("Remove Tag", TAG_COMMANDS.REMOVE_TAG),
+            ],
+            [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
           ])
         );
       } else {
         ctx.reply(
           `Tag "${tag}" is already exist.`,
           Markup.inlineKeyboard([
-            Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-            Markup.button.callback("Get Tags", TAG_COMMANDS.GET_TAGS),
-            Markup.button.callback("Add new one", TAG_COMMANDS.ADD_TAG),
+            [
+              Markup.button.callback("Get Tags", TAG_COMMANDS.GET_TAGS),
+              Markup.button.callback("Add new one", TAG_COMMANDS.ADD_TAG),
+            ],
+            [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
           ])
         );
       }
 
-      (ctx as any).session.tags = tagsSessionData;
+      ctx.session.tags = tagsSessionData;
     });
   }
 }

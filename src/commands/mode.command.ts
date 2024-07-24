@@ -14,7 +14,7 @@ export class ModeCommand extends Command {
         "Select a specific mode from the list below",
         Markup.inlineKeyboard([
           Markup.button.callback("EXPENSE", "expense"),
-          Markup.button.callback("INCOME", "income"),
+          // Markup.button.callback("INCOME", "income"),
         ])
       );
     });
