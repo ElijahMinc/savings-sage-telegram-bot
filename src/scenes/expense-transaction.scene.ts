@@ -29,8 +29,6 @@ export class ExpenseTransactionScene extends Scenario {
 
   handle() {
     this.scene.enter(async (ctx) => {
-      const timezone = (ctx as any).session.timezone || "UTC";
-
       const text = "Choose primary tag as category";
 
       ctx.reply(
@@ -148,10 +146,7 @@ export class ExpenseTransactionScene extends Scenario {
         },
       ];
 
-      const totalExpensesToday = this.calculateExpensesToday(
-        session.expenses,
-        session.timezone
-      );
+      const totalExpensesToday = this.calculateExpensesToday(session.expenses);
 
       ctx.replyWithMarkdown(
         `Noted. 
@@ -218,7 +213,7 @@ export class ExpenseTransactionScene extends Scenario {
         },
         {
           scheduled: true,
-          timezone: session.timezone,
+          timezone: "UTC",
         }
       );
 
@@ -237,11 +232,11 @@ export class ExpenseTransactionScene extends Scenario {
     );
   }
 
-  calculateExpensesToday(expenses: IAmountData[], timezone: string) {
-    const startOfDay = moment().tz(timezone).startOf("day");
+  calculateExpensesToday(expenses: IAmountData[]) {
+    const startOfDay = moment().startOf("day");
 
     const todayExpenses = expenses.filter((expense) =>
-      moment(expense.created_date).tz(timezone).isSameOrAfter(startOfDay)
+      moment(expense.created_date).isSameOrAfter(startOfDay)
     );
 
     return todayExpenses.reduce(

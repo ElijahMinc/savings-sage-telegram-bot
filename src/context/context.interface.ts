@@ -21,7 +21,6 @@ export interface SessionData {
   expenses: IAmountData[];
   income: IAmountData[];
   tags: string[];
-  timezone: string;
 
   isMonthlyFileReport: boolean;
 }
