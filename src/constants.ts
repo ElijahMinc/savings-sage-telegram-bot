@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import * as emoji from "node-emoji";
+import { Markup } from "telegraf";
 
 export enum COMMAND_NAMES {
   START = "start",
@@ -56,3 +58,8 @@ export const transactionDefaultFormatDate = "DD-MM-YYYY";
 export const iv = crypto.randomBytes(16); // generation initial vector
 
 export const dailyReportCRONMask = "0 0 * * *";
+
+export const EXIT_BUTTON = Markup.button.callback(
+  `Exit ${emoji.get("door")}`,
+  SCENES_NAMES.EXIT_FROM_SCENE
+);

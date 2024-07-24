@@ -1,13 +1,16 @@
 import {
+  COMMAND_NAMES,
   DEFAULT_VALUE_SCENE_LIFECYCLE_IN_SECONDS,
+  EXIT_BUTTON,
   SCENES_NAMES,
 } from "@/constants";
-import { Context, Markup, Scenes } from "telegraf";
+import { Markup, Scenes } from "telegraf";
 import { Scenario } from "./scene.class";
 import { containsSlash } from "@/helpers/containsHash.helper";
 import { containsSpecialChars } from "@/helpers/containsSpecialChars.helper";
 import { compressWord } from "@/helpers/compressWord";
-import { IBotContext, SceneContexts } from "@/context/context.interface";
+import { SceneContexts } from "@/context/context.interface";
+import * as emoji from "node-emoji";
 
 enum TAG_COMMANDS {
   GET_TAGS = "GET_TAGS",
@@ -33,26 +36,30 @@ export class TagScene extends Scenario {
   handle() {
     this.scene.enter((ctx) =>
       ctx.reply(
-        "Manage your tags here",
+        `Manage your tags here `,
 
         Markup.inlineKeyboard([
           [
-            Markup.button.callback("Get Tags", TAG_COMMANDS.GET_TAGS),
-            Markup.button.callback("Add Tag", TAG_COMMANDS.ADD_TAG),
-            Markup.button.callback("Remove Tag", TAG_COMMANDS.REMOVE_TAG),
+            Markup.button.callback(
+              `Get Tags ${emoji.get("sparkles")}`,
+              TAG_COMMANDS.GET_TAGS
+            ),
+            Markup.button.callback(
+              `Add Tag ${emoji.get("heavy_plus_sign")}`,
+              TAG_COMMANDS.ADD_TAG
+            ),
+            Markup.button.callback(
+              `Remove Tag ${emoji.get("wastebasket")}`,
+              TAG_COMMANDS.REMOVE_TAG
+            ),
           ],
-          [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
+          [EXIT_BUTTON],
         ])
       )
     );
 
     this.scene.action(TAG_COMMANDS.ADD_TAG, (ctx) => {
-      ctx.reply(
-        "Please, input your tag",
-        Markup.inlineKeyboard([
-          Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-        ])
-      );
+      ctx.reply("Please, input your tag", Markup.inlineKeyboard([EXIT_BUTTON]));
     });
 
     this.scene.action(TAG_COMMANDS.GET_TAGS, (ctx) => {
@@ -63,7 +70,7 @@ export class TagScene extends Scenario {
           "You have no one tags. Please, create one",
           Markup.inlineKeyboard([
             [Markup.button.callback("Add Tag", TAG_COMMANDS.ADD_TAG)],
-            [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
+            [EXIT_BUTTON],
           ])
         );
 
@@ -75,14 +82,14 @@ export class TagScene extends Scenario {
 
         Markup.inlineKeyboard([
           [Markup.button.callback("Add Tag", TAG_COMMANDS.ADD_TAG)],
-          [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
+          [EXIT_BUTTON],
         ])
       );
     });
 
     this.scene.action(SCENES_NAMES.EXIT_FROM_SCENE, (ctx) => {
       ctx.scene.leave();
-      ctx.reply("You've left the scene and came back");
+      ctx.reply("You've come back");
     });
 
     this.scene.action(TAG_COMMANDS.REMOVE_TAG, (ctx) => {
@@ -93,7 +100,7 @@ export class TagScene extends Scenario {
           "There are no tags to delete.",
           Markup.inlineKeyboard([
             [Markup.button.callback("Add Tag", TAG_COMMANDS.ADD_TAG)],
-            [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
+            [EXIT_BUTTON],
           ])
         );
         return;
@@ -104,10 +111,7 @@ export class TagScene extends Scenario {
       );
       ctx.reply(
         "Select tag to delete:",
-        Markup.inlineKeyboard([
-          [...buttons],
-          [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
-        ])
+        Markup.inlineKeyboard([[...buttons], [EXIT_BUTTON]])
       );
     });
 
@@ -116,7 +120,7 @@ export class TagScene extends Scenario {
       const session = ctx.session;
 
       session.tags = session.tags.filter((tag: string) => tag !== tagToRemove);
-      ctx.reply(`Tag "${tagToRemove}" was deleted.`);
+      ctx.reply(`Tag "${tagToRemove}" was deleted ${emoji.get("wastebasket")}`);
 
       ctx.scene.reenter();
     });
@@ -129,21 +133,27 @@ export class TagScene extends Scenario {
 
       if (containsSlash(messageText)) {
         ctx.reply(
-          `If you want to change this Scene to another one use button below`,
-          Markup.inlineKeyboard([
-            Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-          ])
+          `You are in /${
+            COMMAND_NAMES.TAGS
+          } scene. Please input text message according to the following rule:
+          ${emoji.get("shape")} Without symbols;
+          ${emoji.get("shape")} In lowercase;
+          ${emoji.get("shape")} Not a number;
+          ${emoji.get(
+            "shape"
+          )} The length of the tag name should not be longer than 10 characters;`,
+          Markup.inlineKeyboard([EXIT_BUTTON])
         );
         return;
       }
 
       if (containsSpecialChars(messageText)) {
         ctx.reply(
-          "You should write text message without symbols, in lowercase",
+          `${emoji.get(
+            "shape"
+          )} You should write text message without symbols, in lowercase`,
 
-          Markup.inlineKeyboard([
-            Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-          ])
+          Markup.inlineKeyboard([EXIT_BUTTON])
         );
 
         return;
@@ -153,20 +163,18 @@ export class TagScene extends Scenario {
 
       if (isNumber) {
         ctx.reply(
-          `The tag name should be text`,
-          Markup.inlineKeyboard([
-            Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-          ])
+          `${emoji.get("shape")} The tag name should be text`,
+          Markup.inlineKeyboard([EXIT_BUTTON])
         );
         return;
       }
 
       if (messageText.length >= 10) {
         ctx.reply(
-          `The length of the tag name should not be longer than 10 characters`,
-          Markup.inlineKeyboard([
-            Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-          ])
+          `${emoji.get(
+            "shape"
+          )} The length of the tag name should not be longer than 10 characters`,
+          Markup.inlineKeyboard([EXIT_BUTTON])
         );
         return;
       }
@@ -176,7 +184,9 @@ export class TagScene extends Scenario {
       const tag = compressWord(messageText);
 
       if (!tag) {
-        ctx.reply("The tag cannot be empty. Please enter the tag.");
+        ctx.reply(
+          `${emoji.get("shape")} The tag cannot be empty. Please enter the tag.`
+        );
         return;
       }
 
@@ -188,7 +198,7 @@ export class TagScene extends Scenario {
         tagsSessionData.push(`#${tag}`);
 
         ctx.reply(
-          `Tag "${tag}" was added.`,
+          `${emoji.get("stars")} Tag "${tag}" was added ${emoji.get("stars")}`,
 
           Markup.inlineKeyboard([
             [
@@ -196,18 +206,20 @@ export class TagScene extends Scenario {
               Markup.button.callback("Add new one", TAG_COMMANDS.ADD_TAG),
               Markup.button.callback("Remove Tag", TAG_COMMANDS.REMOVE_TAG),
             ],
-            [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
+            [EXIT_BUTTON],
           ])
         );
       } else {
         ctx.reply(
-          `Tag "${tag}" is already exist.`,
+          `${emoji.get("stars")} Tag "${tag}" is already exist ${emoji.get(
+            "stars"
+          )}`,
           Markup.inlineKeyboard([
             [
               Markup.button.callback("Get Tags", TAG_COMMANDS.GET_TAGS),
               Markup.button.callback("Add new one", TAG_COMMANDS.ADD_TAG),
             ],
-            [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
+            [EXIT_BUTTON],
           ])
         );
       }

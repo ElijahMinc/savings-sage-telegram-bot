@@ -1,4 +1,9 @@
-import { dailyReportCRONMask, SCENES_NAMES } from "@/constants";
+import {
+  COMMAND_NAMES,
+  dailyReportCRONMask,
+  EXIT_BUTTON,
+  SCENES_NAMES,
+} from "@/constants";
 import { Markup, Scenes } from "telegraf";
 import { Scenario } from "./scene.class";
 import {
@@ -43,26 +48,21 @@ export class ExpenseTransactionScene extends Scenario {
               TRANSACTION_COMMANDS.CHOOSE_TAG
             ),
           ],
-          [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
+          [EXIT_BUTTON],
         ])
       );
     });
 
     this.scene.action(SCENES_NAMES.EXIT_FROM_SCENE, (ctx) => {
-      (ctx as any).scene.leave();
-      ctx.reply("You've left the scene and came back");
+      ctx.scene.leave();
+      ctx.reply("You've come back");
     });
 
     this.scene.action(TRANSACTION_COMMANDS.CHOOSE_TAG, (ctx) => {
-      const tags = (ctx as any).session.tags || [];
+      const tags = ctx.session.tags || [];
 
       if (!tags.length) {
-        ctx.reply(
-          "There is no tags",
-          Markup.inlineKeyboard([
-            Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-          ])
-        );
+        ctx.reply("There is no tags", Markup.inlineKeyboard([EXIT_BUTTON]));
         return;
       }
 
@@ -71,10 +71,7 @@ export class ExpenseTransactionScene extends Scenario {
       );
       ctx.reply(
         "Select one of the tags:",
-        Markup.inlineKeyboard([
-          [...buttons],
-          [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
-        ])
+        Markup.inlineKeyboard([[...buttons], [EXIT_BUTTON]])
       );
     });
 
@@ -84,14 +81,12 @@ export class ExpenseTransactionScene extends Scenario {
       (ctx as any).scene.state.choosenTag = tagToChoose;
 
       ctx.reply(
-        `The tag *"${tagToChoose}"* has been selected.
+        `The tag *${tagToChoose}* has been selected.
 
         1) Enter number value;
         2) Press Exit button to leave;
         `,
-        Markup.inlineKeyboard([
-          Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-        ])
+        Markup.inlineKeyboard([EXIT_BUTTON])
       );
     });
 
@@ -104,10 +99,8 @@ export class ExpenseTransactionScene extends Scenario {
 
       if (containsSpecialChars(messageText)) {
         ctx.reply(
-          `You are in /transaction scene. Please enter value as number or leave this scene pressing exit button below`,
-          Markup.inlineKeyboard([
-            Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-          ])
+          `You are in /${COMMAND_NAMES.TRANSACTION} scene. Please enter value as number or leave this scene pressing exit button below`,
+          Markup.inlineKeyboard([EXIT_BUTTON])
         );
         return;
       }
@@ -115,20 +108,13 @@ export class ExpenseTransactionScene extends Scenario {
       if (!textAsNumber && isNaN(textAsNumber)) {
         ctx.reply(
           "Please, input only numbers",
-          Markup.inlineKeyboard([
-            Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-          ])
+          Markup.inlineKeyboard([EXIT_BUTTON])
         );
         return;
       }
 
       if (!containsStrictNumber(messageText)) {
-        ctx.reply(
-          "Incorrect value",
-          Markup.inlineKeyboard([
-            Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-          ])
-        );
+        ctx.reply("Incorrect value", Markup.inlineKeyboard([EXIT_BUTTON]));
         return;
       }
 
@@ -137,9 +123,7 @@ export class ExpenseTransactionScene extends Scenario {
       if (isInvalidNumber) {
         ctx.reply(
           "Number value can't be less 0 or be equal 0",
-          Markup.inlineKeyboard([
-            Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE),
-          ])
+          Markup.inlineKeyboard([EXIT_BUTTON])
         );
         return;
       }
@@ -154,7 +138,7 @@ export class ExpenseTransactionScene extends Scenario {
                 TRANSACTION_COMMANDS.CHOOSE_TAG
               ),
             ],
-            [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
+            [EXIT_BUTTON],
           ])
         );
 
@@ -193,7 +177,7 @@ export class ExpenseTransactionScene extends Scenario {
               TRANSACTION_COMMANDS.CHOOSE_TAG
             ),
           ],
-          [Markup.button.callback("Exit", SCENES_NAMES.EXIT_FROM_SCENE)],
+          [EXIT_BUTTON],
         ])
       );
 
