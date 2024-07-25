@@ -1,8 +1,8 @@
 import {
   COMMAND_NAMES,
-  DEFAULT_VALUE_SCENE_LIFECYCLE_IN_SECONDS,
   EXIT_BUTTON,
   SCENES_NAMES,
+  START_COMMAND_MESSAGE,
 } from "@/constants";
 import { Markup, Scenes } from "telegraf";
 import { Scenario } from "./scene.class";
@@ -20,13 +20,13 @@ enum TAG_COMMANDS {
 
 export class TagScene extends Scenario {
   scene: Scenes.BaseScene<SceneContexts<"TagScene">> = new Scenes.BaseScene(
-    SCENES_NAMES.TAG_SCENE,
-    {
-      ttl: DEFAULT_VALUE_SCENE_LIFECYCLE_IN_SECONDS,
-      handlers: [],
-      enterHandlers: [],
-      leaveHandlers: [],
-    }
+    SCENES_NAMES.TAG_SCENE
+    // {
+    //   ttl: DEFAULT_VALUE_SCENE_LIFECYCLE_IN_SECONDS,
+    //   handlers: [],
+    //   enterHandlers: [],
+    //   leaveHandlers: [],
+    // }
   );
 
   constructor() {
@@ -69,7 +69,17 @@ export class TagScene extends Scenario {
         ctx.reply(
           "You have no one tags. Please, create one",
           Markup.inlineKeyboard([
-            [Markup.button.callback("Add Tag", TAG_COMMANDS.ADD_TAG)],
+            [
+              Markup.button.callback(
+                `Add Tag ${emoji.get("heavy_plus_sign")}`,
+                TAG_COMMANDS.ADD_TAG
+              ),
+              Markup.button.callback(
+                `Remove Tag ${emoji.get("wastebasket")}`,
+                TAG_COMMANDS.REMOVE_TAG
+              ),
+            ],
+
             [EXIT_BUTTON],
           ])
         );
@@ -81,7 +91,12 @@ export class TagScene extends Scenario {
         tags.join(","),
 
         Markup.inlineKeyboard([
-          [Markup.button.callback("Add Tag", TAG_COMMANDS.ADD_TAG)],
+          [
+            Markup.button.callback(
+              `Add Tag ${emoji.get("heavy_plus_sign")}`,
+              TAG_COMMANDS.ADD_TAG
+            ),
+          ],
           [EXIT_BUTTON],
         ])
       );
@@ -89,7 +104,7 @@ export class TagScene extends Scenario {
 
     this.scene.action(SCENES_NAMES.EXIT_FROM_SCENE, (ctx) => {
       ctx.scene.leave();
-      ctx.reply("You've come back");
+      ctx.replyWithMarkdown(START_COMMAND_MESSAGE);
     });
 
     this.scene.action(TAG_COMMANDS.REMOVE_TAG, (ctx) => {
@@ -97,9 +112,14 @@ export class TagScene extends Scenario {
 
       if (!tags.length) {
         ctx.reply(
-          "There are no tags to delete.",
+          "There are no tags to delete. Please, create one",
           Markup.inlineKeyboard([
-            [Markup.button.callback("Add Tag", TAG_COMMANDS.ADD_TAG)],
+            [
+              Markup.button.callback(
+                `Add Tag ${emoji.get("heavy_plus_sign")}`,
+                TAG_COMMANDS.ADD_TAG
+              ),
+            ],
             [EXIT_BUTTON],
           ])
         );
@@ -107,7 +127,10 @@ export class TagScene extends Scenario {
       }
 
       const buttons = tags.map((tag: string) =>
-        Markup.button.callback(tag, `remove_${tag}`)
+        Markup.button.callback(
+          `${tag} ${emoji.get("wastebasket")}`,
+          `remove_${tag}`
+        )
       );
       ctx.reply(
         "Select tag to delete:",
@@ -202,9 +225,18 @@ export class TagScene extends Scenario {
 
           Markup.inlineKeyboard([
             [
-              Markup.button.callback("Get Tags", TAG_COMMANDS.GET_TAGS),
-              Markup.button.callback("Add new one", TAG_COMMANDS.ADD_TAG),
-              Markup.button.callback("Remove Tag", TAG_COMMANDS.REMOVE_TAG),
+              Markup.button.callback(
+                `Get Tags ${emoji.get("sparkles")}`,
+                TAG_COMMANDS.GET_TAGS
+              ),
+              Markup.button.callback(
+                `Add Tag ${emoji.get("heavy_plus_sign")}`,
+                TAG_COMMANDS.ADD_TAG
+              ),
+              Markup.button.callback(
+                `Remove Tag ${emoji.get("wastebasket")}`,
+                TAG_COMMANDS.REMOVE_TAG
+              ),
             ],
             [EXIT_BUTTON],
           ])
@@ -216,8 +248,14 @@ export class TagScene extends Scenario {
           )}`,
           Markup.inlineKeyboard([
             [
-              Markup.button.callback("Get Tags", TAG_COMMANDS.GET_TAGS),
-              Markup.button.callback("Add new one", TAG_COMMANDS.ADD_TAG),
+              Markup.button.callback(
+                `Get Tags ${emoji.get("sparkles")}`,
+                TAG_COMMANDS.GET_TAGS
+              ),
+              Markup.button.callback(
+                `Add Tag ${emoji.get("heavy_plus_sign")}`,
+                TAG_COMMANDS.ADD_TAG
+              ),
             ],
             [EXIT_BUTTON],
           ])

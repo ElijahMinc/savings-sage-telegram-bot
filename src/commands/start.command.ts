@@ -1,7 +1,8 @@
 import { Telegraf } from "telegraf";
 import { IBotContext } from "@context/context.interface";
 import { Command } from "./command.class";
-import { COMMAND_NAMES } from "@/constants";
+import { COMMAND_NAMES, START_COMMAND_MESSAGE } from "@/constants";
+import * as emoji from "node-emoji";
 
 export class StartCommand extends Command {
   constructor(public bot: Telegraf<IBotContext>) {
@@ -10,9 +11,7 @@ export class StartCommand extends Command {
 
   handle(): void {
     this.bot.start(async (ctx) => {
-      ctx.reply(
-        `Hello! Please choose primary tag first using /${COMMAND_NAMES.TAGS} command`
-      );
+      ctx.replyWithMarkdown(START_COMMAND_MESSAGE);
     });
 
     this.bot.on("message", async (ctx) => {

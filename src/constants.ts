@@ -63,3 +63,22 @@ export const EXIT_BUTTON = Markup.button.callback(
   `Exit ${emoji.get("door")}`,
   SCENES_NAMES.EXIT_FROM_SCENE
 );
+
+export const COME_BACK_MESSAGE = `You've come back at home commands ${emoji.get(
+  "house"
+)}`;
+
+export const START_COMMAND_MESSAGE = `
+${emoji.get("small_red_triangle_down")} Manage your tags using ${emoji.get(
+  "label"
+)} using /${COMMAND_NAMES.TAGS} command
+
+${emoji.get(
+  "small_red_triangle_down"
+)} Manage your types of transaction: expenses or incomes using /${
+  COMMAND_NAMES.CHANGE_MODE
+} command
+
+${emoji.get("small_red_triangle_down")} Manage your transactions using /${
+  COMMAND_NAMES.TRANSACTION
+} command`;

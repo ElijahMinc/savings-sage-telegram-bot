@@ -1,8 +1,10 @@
 import {
+  COME_BACK_MESSAGE,
   COMMAND_NAMES,
   dailyReportCRONMask,
   EXIT_BUTTON,
   SCENES_NAMES,
+  START_COMMAND_MESSAGE,
 } from "@/constants";
 import { Markup, Scenes } from "telegraf";
 import { Scenario } from "./scene.class";
@@ -20,6 +22,7 @@ import cronTaskTrackerService from "@/services/CronTaskTrackerService";
 import { encrypt, IEncryptedData } from "@/helpers/encrypt";
 import { decrypt } from "@/helpers/decrypt";
 import { containsStrictNumber } from "@/helpers/containsStrictNumber.helper";
+import * as emoji from "node-emoji";
 
 enum TRANSACTION_COMMANDS {
   CHOOSE_TAG = "CHOOSE_TAG",
@@ -36,14 +39,14 @@ export class ExpenseTransactionScene extends Scenario {
 
   handle() {
     this.scene.enter(async (ctx) => {
-      const text = "Choose primary tag as category";
+      const text = `Choose primary tag ${emoji.get("label")} as category`;
 
       ctx.reply(
         text,
         Markup.inlineKeyboard([
           [
             Markup.button.callback(
-              "Choose primary tag",
+              `Choose primary tag ${emoji.get("label")}`,
               TRANSACTION_COMMANDS.CHOOSE_TAG
             ),
           ],
@@ -54,19 +57,19 @@ export class ExpenseTransactionScene extends Scenario {
 
     this.scene.action(SCENES_NAMES.EXIT_FROM_SCENE, (ctx) => {
       ctx.scene.leave();
-      ctx.reply("You've come back");
+      ctx.replyWithMarkdown(START_COMMAND_MESSAGE);
     });
 
     this.scene.action(TRANSACTION_COMMANDS.CHOOSE_TAG, (ctx) => {
       const tags = ctx.session.tags || [];
 
       if (!tags.length) {
-        ctx.reply("There is no tags", Markup.inlineKeyboard([EXIT_BUTTON]));
+        ctx.reply(`There is no tags`, Markup.inlineKeyboard([EXIT_BUTTON]));
         return;
       }
 
       const buttons = tags.map((tag: string) =>
-        Markup.button.callback(tag, `choose_${tag}`)
+        Markup.button.callback(`${tag} ${emoji.get("label")}`, `choose_${tag}`)
       );
       ctx.reply(
         "Select one of the tags:",
@@ -80,10 +83,13 @@ export class ExpenseTransactionScene extends Scenario {
       (ctx as any).scene.state.choosenTag = tagToChoose;
 
       ctx.reply(
-        `The tag *${tagToChoose}* has been selected.
+        `${emoji.get(
+          "white_check_mark"
+        )} The tag *${tagToChoose}* has been selected .
 
-        1) Enter number value;
-        2) Press Exit button to leave;
+        ${emoji.get("small_red_triangle_down")} Enter number value;
+
+        ${emoji.get("small_red_triangle_down")} Press Exit button to leave;
         `,
         Markup.inlineKeyboard([EXIT_BUTTON])
       );
@@ -133,7 +139,7 @@ export class ExpenseTransactionScene extends Scenario {
           Markup.inlineKeyboard([
             [
               Markup.button.callback(
-                "Choose tag",
+                `Choose tag ${emoji.get("white_check_mark")}`,
                 TRANSACTION_COMMANDS.CHOOSE_TAG
               ),
             ],
@@ -159,20 +165,26 @@ export class ExpenseTransactionScene extends Scenario {
       const monospaceTransactionId = "`" + transaction.id + "`";
 
       ctx.replyWithMarkdown(
-        `Noted. 
+        `Noted ${emoji.get("white_check_mark")}
 
-        Transaction Id: ${monospaceTransactionId};
+        ${emoji.get("id")} Transaction Id: ${monospaceTransactionId};
 
-        You've spent: *${textAsNumber} ${CURRENCIES.EURO}*;
+       ${emoji.get("money_with_wings")} You've spent: *${textAsNumber} ${
+          CURRENCIES.EURO
+        }*;
 
-        Todays Total: *${totalExpensesToday} ${CURRENCIES.EURO}*;
+       ${emoji.get("money_with_wings")} Todays Total: *${totalExpensesToday} ${
+          CURRENCIES.EURO
+        }*;
 
-        Your primary tag as category: *${state.choosenTag}*;
+        ${emoji.get("label")} Your primary tag as category: *${
+          state.choosenTag
+        }*
         `,
         Markup.inlineKeyboard([
           [
             Markup.button.callback(
-              "Choose another primary tag",
+              `Choose another primary tag ${emoji.get("white_check_mark")}`,
               TRANSACTION_COMMANDS.CHOOSE_TAG
             ),
           ],

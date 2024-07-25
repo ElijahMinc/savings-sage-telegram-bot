@@ -5,11 +5,8 @@ import "module-alias/register";
 import { Scenes, Telegraf } from "telegraf";
 import { Command } from "@commands/command.class";
 import { StartCommand } from "@commands/start.command";
-import LocalSession from "telegraf-session-local";
 import {
   commands,
-  DEFAULT_VALUE_SCENE_LIFECYCLE_IN_SECONDS,
-  // defaultStateValues,
 } from "@/constants";
 import { IConfigService } from "@config/config.interface";
 import { ConfigService } from "@config/config.service";
@@ -23,6 +20,7 @@ import { ExpenseTransactionScene } from "./scenes/expense-transaction.scene";
 import { XLMXCommand } from "./commands/xlmx.command";
 import { MongoClient } from "mongodb";
 import { session } from "telegraf-session-mongodb";
+import { dailyReportMiddleware } from "./middlewares/dailyReport.middleware";
 
 const CONNECT_DB = process.env.MONGODB_CONNECT_DB_URL!.replace(
   "<password>",
@@ -72,11 +70,14 @@ class Bot {
 
     const stages: any = new Scenes.Stage(scenes);
 
+    this.bot.use(dailyReportMiddleware());
+
     this.bot.use(stages.middleware());
 
     for (const command of this.commands) {
       command.handle();
     }
+
     console.time("Launching time");
     this.bot.launch();
     console.timeEnd("Launching time");
