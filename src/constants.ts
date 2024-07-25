@@ -4,10 +4,10 @@ import { Markup } from "telegraf";
 
 export enum COMMAND_NAMES {
   START = "start",
-  TAGS = "manage_tags",
-  CHANGE_MODE = "change_mode",
+  TAGS = "tags",
+  CHANGE_MODE = "mode",
   TRANSACTION = "transaction",
-  DOWNLOAD_ANALYTICS = "download_analytics",
+  DOWNLOAD_ANALYTICS = "analytic",
 }
 
 export enum SCENES_NAMES {
@@ -69,16 +69,18 @@ export const COME_BACK_MESSAGE = `You've come back at home commands ${emoji.get(
 )}`;
 
 export const START_COMMAND_MESSAGE = `
-${emoji.get("small_red_triangle_down")} Manage your tags using ${emoji.get(
-  "label"
-)} using /${COMMAND_NAMES.TAGS} command
+${emoji.get("small_red_triangle_down")} Manage your tags using /${
+  COMMAND_NAMES.TAGS
+} 
 
-${emoji.get(
-  "small_red_triangle_down"
-)} Manage your types of transaction: expenses or incomes using /${
+${emoji.get("small_red_triangle_down")} Manage expenses or incomes using /${
   COMMAND_NAMES.CHANGE_MODE
-} command
+}
 
 ${emoji.get("small_red_triangle_down")} Manage your transactions using /${
   COMMAND_NAMES.TRANSACTION
-} command`;
+}
+
+${emoji.get("small_red_triangle_down")} Download your transactions using /${
+  COMMAND_NAMES.DOWNLOAD_ANALYTICS
+}`;

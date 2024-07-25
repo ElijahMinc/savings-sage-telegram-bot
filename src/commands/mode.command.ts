@@ -1,7 +1,7 @@
 import { Markup, Telegraf } from "telegraf";
 import { IBotContext } from "@context/context.interface";
 import { Command } from "./command.class";
-import { COMMAND_NAMES } from "@/constants";
+import { COMMAND_NAMES, START_COMMAND_MESSAGE } from "@/constants";
 
 export class ModeCommand extends Command {
   constructor(public bot: Telegraf<IBotContext>) {
@@ -22,13 +22,15 @@ export class ModeCommand extends Command {
     this.bot.action("expense", async (ctx) => {
       ctx.session.mode = "expense";
 
-      ctx.editMessageText(`Your mode is ${ctx.session.mode}`);
+      await ctx.editMessageText(`Your mode is ${ctx.session.mode}`);
+      await ctx.reply(START_COMMAND_MESSAGE);
     });
 
     this.bot.action("income", async (ctx) => {
       ctx.session.mode = "income";
 
-      ctx.editMessageText(`Your mode is ${ctx.session.mode}`);
+      await ctx.editMessageText(`Your mode is ${ctx.session.mode}`);
+      await ctx.reply(START_COMMAND_MESSAGE);
     });
   }
 }
