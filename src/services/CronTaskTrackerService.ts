@@ -8,6 +8,10 @@ class CronTaskTrackerService {
     return this.db.map.get(key);
   }
 
+  values() {
+    return this.db.map.values();
+  }
+
   has(roomId: string): boolean {
     return this.db.map.has(roomId);
   }

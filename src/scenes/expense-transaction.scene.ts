@@ -16,13 +16,11 @@ import {
 import moment from "moment";
 import "moment-timezone";
 import { containsSlash } from "@/helpers/containsHash.helper";
-import cron from "node-cron";
-import { xlmxService } from "@/services/XLMX.service";
-import cronTaskTrackerService from "@/services/CronTaskTrackerService";
 import { encrypt, IEncryptedData } from "@/helpers/encrypt";
 import { decrypt } from "@/helpers/decrypt";
 import { containsStrictNumber } from "@/helpers/containsStrictNumber.helper";
 import * as emoji from "node-emoji";
+import { getFixedAmount } from "@/helpers/getFixedAmount";
 
 enum TRANSACTION_COMMANDS {
   CHOOSE_TAG = "CHOOSE_TAG",
@@ -85,7 +83,7 @@ export class ExpenseTransactionScene extends Scenario {
       ctx.reply(
         `${emoji.get(
           "white_check_mark"
-        )} The tag *${tagToChoose}* has been selected .
+        )} The tag ${tagToChoose} has been selected .
 
         ${emoji.get("small_red_triangle_down")} Enter number value;
 
@@ -152,7 +150,7 @@ export class ExpenseTransactionScene extends Scenario {
 
       const transaction: IAmountData = {
         id: Date.now(),
-        amount: encrypt(textAsNumber.toString()),
+        amount: encrypt(getFixedAmount(textAsNumber)),
         tag: state.choosenTag as string,
         created_date: new Date(),
         currency: CURRENCIES.EURO,
@@ -167,19 +165,17 @@ export class ExpenseTransactionScene extends Scenario {
       ctx.replyWithMarkdown(
         `Noted ${emoji.get("white_check_mark")}
 
-        ${emoji.get("id")} Transaction Id: ${monospaceTransactionId};
+${emoji.get("id")} Transaction Id: ${monospaceTransactionId};
 
-       ${emoji.get("money_with_wings")} You've spent: *${textAsNumber} ${
+${emoji.get("money_with_wings")} You've spent: *${textAsNumber} ${
           CURRENCIES.EURO
         }*;
 
-       ${emoji.get("money_with_wings")} Todays Total: *${totalExpensesToday} ${
-          CURRENCIES.EURO
-        }*;
+${emoji.get("money_with_wings")} Todays Total: *${getFixedAmount(
+          totalExpensesToday
+        )} ${CURRENCIES.EURO}*;
 
-        ${emoji.get("label")} Your primary tag as category: *${
-          state.choosenTag
-        }*
+${emoji.get("label")} Your primary tag as category: *${state.choosenTag}*
         `,
         Markup.inlineKeyboard([
           [
@@ -191,59 +187,6 @@ export class ExpenseTransactionScene extends Scenario {
           [EXIT_BUTTON],
         ])
       );
-
-      if (session?.isDailyFileReport) {
-        return;
-      }
-
-      session.isDailyFileReport = true;
-
-      const cronTask = cron.schedule(
-        dailyReportCRONMask,
-        () => {
-          const data = session?.expenses;
-
-          if (!data || !data?.length) {
-            return ctx.reply("There is no data");
-          }
-
-          const { filename, readStream } =
-            xlmxService.getReadStreamByData(data);
-
-          ctx
-            .replyWithDocument({
-              source: readStream,
-              filename,
-            })
-            .then(() => {
-              session.expenses = [];
-              session.isDailyFileReport = false;
-
-              const cronTaskBySessionId = cronTaskTrackerService.get(
-                ctx.from.id.toString()
-              );
-
-              cronTaskBySessionId?.stop();
-
-              cronTaskTrackerService.delete(ctx.from.id.toString());
-            })
-            .then(() => {
-              ctx.replyWithMarkdown(
-                `The expense session has been recorded and saved in the XLSX file ${filename} for the monthly report (UTC time). 
-                *The session has been reset in the application.*`
-              );
-            })
-            .catch((error) => {
-              console.error("Error sending document:", error);
-            });
-        },
-        {
-          scheduled: true,
-          timezone: "UTC",
-        }
-      );
-
-      cronTaskTrackerService.set(ctx.from.id.toString(), cronTask);
     });
   }
   calculateExpensesLastHour(expenses: IAmountData[]) {

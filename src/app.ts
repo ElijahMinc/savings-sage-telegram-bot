@@ -5,9 +5,7 @@ import "module-alias/register";
 import { Scenes, Telegraf } from "telegraf";
 import { Command } from "@commands/command.class";
 import { StartCommand } from "@commands/start.command";
-import {
-  commands,
-} from "@/constants";
+import { commands } from "@/constants";
 import { IConfigService } from "@config/config.interface";
 import { ConfigService } from "@config/config.service";
 import { IBotContext } from "@context/context.interface";
@@ -18,14 +16,10 @@ import { Scenario } from "./scenes/scene.class";
 import { TransactionCommand } from "./commands/transaction.command";
 import { ExpenseTransactionScene } from "./scenes/expense-transaction.scene";
 import { XLMXCommand } from "./commands/xlmx.command";
-import { MongoClient } from "mongodb";
+import { Db, MongoClient } from "mongodb";
 import { session } from "telegraf-session-mongodb";
 import { dailyReportMiddleware } from "./middlewares/dailyReport.middleware";
-
-const CONNECT_DB = process.env.MONGODB_CONNECT_DB_URL!.replace(
-  "<password>",
-  process.env.MONGODB_CONNECT_DB_PASSWORD!
-);
+import { mongoDbClient } from "./db/connection";
 
 class Bot {
   bot: Telegraf<IBotContext>;
@@ -88,11 +82,7 @@ const bot = new Bot(new ConfigService());
 
 const start = async () => {
   try {
-    const client = await MongoClient.connect(CONNECT_DB);
-    const db = client.db();
-    console.log("Connected to DB");
-
-    const sessions = session(db, {
+    const sessions = session(mongoDbClient, {
       sessionName: "session",
       collectionName: "sessions",
     });

@@ -3,6 +3,7 @@ import { decrypt } from "@/helpers/decrypt";
 import { IEncryptedData } from "@/helpers/encrypt";
 import { filterDataForLastMonth } from "@/helpers/filterDataForLastMonth.helper";
 import { formatDate } from "@/helpers/formatDate.helper";
+import { getFixedAmount } from "@/helpers/getFixedAmount";
 import { getTransactionDateFormat } from "@/helpers/getTransactionDateFormat";
 import moment from "moment";
 import { Stream } from "stream";
@@ -32,11 +33,11 @@ class XLMXService {
       total += amount;
       return {
         ...item,
-        amount,
+        amount: getFixedAmount(amount),
         created_date: formatDate(item.created_date),
       };
     });
-    transformedData.push({ id: "Total", amount: total } as any);
+    transformedData.push({ id: "Total", amount: getFixedAmount(total) } as any);
 
     const ws = XLSX.utils.json_to_sheet(transformedData);
     const wb = XLSX.utils.book_new();
