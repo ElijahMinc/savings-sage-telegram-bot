@@ -57,7 +57,7 @@ export const transactionDefaultFormatDate = "DD-MM-YYYY";
 
 export const iv = crypto.randomBytes(16); // generation initial vector
 
-export const dailyReportCRONMask = "* * * * *";
+export const dailyReportCRONMask = "0 0 * * *";
 // * * * * * - one minute
 
 export const EXIT_BUTTON = Markup.button.callback(
