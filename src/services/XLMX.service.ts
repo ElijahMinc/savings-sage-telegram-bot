@@ -73,8 +73,6 @@ class XLMXService {
       moment(item.created_date).isSame(moment(), "day")
     );
 
-    console.log("allToday", allToday);
-
     const filename = allToday
       ? `transactions_${getTransactionDateFormat()}.xlsx`
       : `transactions_${getTransactionDateFormat(

@@ -1,10 +1,9 @@
 import {
-  COME_BACK_MESSAGE,
   COMMAND_NAMES,
-  dailyReportCRONMask,
   EXIT_BUTTON,
   SCENES_NAMES,
   START_COMMAND_MESSAGE,
+  TRANSACTION_RULES_MESSAGE,
 } from "@/constants";
 import { Markup, Scenes } from "telegraf";
 import { Scenario } from "./scene.class";
@@ -109,23 +108,26 @@ export class ExpenseTransactionScene extends Scenario {
       }
 
       if (!textAsNumber && isNaN(textAsNumber)) {
-        ctx.reply(
-          "Please, input only numbers",
+        ctx.replyWithMarkdown(
+          TRANSACTION_RULES_MESSAGE,
           Markup.inlineKeyboard([EXIT_BUTTON])
         );
         return;
       }
 
       if (!containsStrictNumber(messageText)) {
-        ctx.reply("Incorrect value", Markup.inlineKeyboard([EXIT_BUTTON]));
+        ctx.replyWithMarkdown(
+          TRANSACTION_RULES_MESSAGE,
+          Markup.inlineKeyboard([EXIT_BUTTON])
+        );
         return;
       }
 
       const isInvalidNumber = textAsNumber <= 0;
 
       if (isInvalidNumber) {
-        ctx.reply(
-          "Number value can't be less 0 or be equal 0",
+        ctx.replyWithMarkdown(
+          TRANSACTION_RULES_MESSAGE,
           Markup.inlineKeyboard([EXIT_BUTTON])
         );
         return;
