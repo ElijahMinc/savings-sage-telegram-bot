@@ -1,6 +1,7 @@
 import { IAmountData } from "@/context/context.interface";
 import { decrypt } from "@/helpers/decrypt";
 import { IEncryptedData } from "@/helpers/encrypt";
+import { filterDataForDateRange } from "@/helpers/filterDataForDateRange";
 import { filterDataForLastMonth } from "@/helpers/filterDataForLastMonth.helper";
 import { formatDate } from "@/helpers/formatDate.helper";
 import { getFixedAmount } from "@/helpers/getFixedAmount";
@@ -25,7 +26,7 @@ class XLMXService {
     type: "expenses" | "income"
   ) {
     const { filteredData, startDate, endDate } =
-      filterDataForLastMonth<T>(data);
+      filterDataForDateRange<T>(data);
 
     let total = 0;
     const transformedData = filteredData.map((item) => {
@@ -40,6 +41,11 @@ class XLMXService {
     transformedData.push({ id: "Total", amount: getFixedAmount(total) } as any);
 
     const ws = XLSX.utils.json_to_sheet(transformedData);
+
+    for (let i = 1; i <= filteredData.length + 1; i++) {
+      ws[`B${i}`].s = { alignment: { horizontal: "left" } }; // Колонка B - amount
+    }
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, type ? "Expenses" : "Incomes");
 
@@ -66,6 +72,8 @@ class XLMXService {
     const allToday = filteredData.every((item) =>
       moment(item.created_date).isSame(moment(), "day")
     );
+
+    console.log("allToday", allToday);
 
     const filename = allToday
       ? `transactions_${getTransactionDateFormat()}.xlsx`
