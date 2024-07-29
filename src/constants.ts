@@ -85,3 +85,16 @@ ${emoji.get("small_red_triangle_down")} Manage your transactions using /${
 ${emoji.get("small_red_triangle_down")} Download your transactions using /${
   COMMAND_NAMES.DOWNLOAD_ANALYTICS
 }`;
+
+export const TRANSACTION_RULES_MESSAGE = `
+${emoji.get(
+  "warning"
+)} Please enter the amount according to the following rules ${emoji.get(
+  "warning"
+)}
+
+${emoji.get("exclamation")} Only numbers. For instance, *1*, *3.19*;
+
+${emoji.get("exclamation")} Number value can't be less 0 or be equal 0;
+
+${emoji.get("exclamation")} Without symbols and spaces;`;
