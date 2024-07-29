@@ -24,6 +24,7 @@ import { getFixedAmount } from "@/helpers/getFixedAmount";
 enum TRANSACTION_COMMANDS {
   CHOOSE_TAG = "CHOOSE_TAG",
   REMOVE_TAG = "REMOVE_TAG",
+  DELETE_TRANSACTION = "DELETE_TRANSACTION",
 }
 
 export class ExpenseTransactionScene extends Scenario {
@@ -84,9 +85,55 @@ export class ExpenseTransactionScene extends Scenario {
           "white_check_mark"
         )} The tag ${tagToChoose} has been selected .
 
-        ${emoji.get("small_red_triangle_down")} Enter number value;
+  ${emoji.get("small_red_triangle_down")} Enter number value;
 
-        ${emoji.get("small_red_triangle_down")} Press Exit button to leave;
+  ${emoji.get("small_red_triangle_down")} Press Exit button to leave;
+        `,
+        Markup.inlineKeyboard([EXIT_BUTTON])
+      );
+    });
+
+    this.scene.action(/delete_transaction_(.+)/, (ctx) => {
+      const transactionIdToDelete = ctx.match[1];
+
+      const monospaceTransactionId = "`" + transactionIdToDelete + "`";
+
+      const isExist = ctx.session?.expenses?.some(
+        ({ id }) => id === Number(transactionIdToDelete)
+      );
+
+      if (!isExist) {
+        ctx.reply(
+          `${emoji.get("exclamation")}The transaction with an ${emoji.get(
+            "id"
+          )} such as ${transactionIdToDelete} does NOT exist${emoji.get(
+            "exclamation"
+          )}
+  
+  ${emoji.get("small_red_triangle_down")} Enter number value;
+  
+  ${emoji.get("small_red_triangle_down")} Press Exit button to leave;
+          `,
+          Markup.inlineKeyboard([EXIT_BUTTON])
+        );
+
+        return;
+      }
+
+      const newExpenseTransactions = ctx.session?.expenses?.filter(
+        ({ id }) => id !== Number(transactionIdToDelete)
+      );
+
+      ctx.session.expenses = newExpenseTransactions;
+
+      ctx.replyWithMarkdown(
+        `${emoji.get(
+          "white_check_mark"
+        )} The transaction ${monospaceTransactionId} has been deleted.
+
+  ${emoji.get("small_red_triangle_down")} Enter number value;
+
+  ${emoji.get("small_red_triangle_down")} Press Exit button to leave;
         `,
         Markup.inlineKeyboard([EXIT_BUTTON])
       );
@@ -169,9 +216,9 @@ export class ExpenseTransactionScene extends Scenario {
 
 ${emoji.get("id")} Transaction Id: ${monospaceTransactionId};
 
-${emoji.get("money_with_wings")} You've spent: *${textAsNumber} ${
-          CURRENCIES.EURO
-        }*;
+${emoji.get("money_with_wings")} You've spent: *${getFixedAmount(
+          textAsNumber
+        )} ${CURRENCIES.EURO}*;
 
 ${emoji.get("money_with_wings")} Todays Total: *${getFixedAmount(
           totalExpensesToday
@@ -182,8 +229,14 @@ ${emoji.get("label")} Your primary tag as category: *${state.choosenTag}*
         Markup.inlineKeyboard([
           [
             Markup.button.callback(
-              `Choose another primary tag ${emoji.get("white_check_mark")}`,
+              `Choose another primary tag ${emoji.get("label")}`,
               TRANSACTION_COMMANDS.CHOOSE_TAG
+            ),
+          ],
+          [
+            Markup.button.callback(
+              `Delete this transaction ${emoji.get("wastebasket")}`,
+              `delete_transaction_${transaction.id}`
             ),
           ],
           [EXIT_BUTTON],
