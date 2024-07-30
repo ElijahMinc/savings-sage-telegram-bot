@@ -69,11 +69,11 @@ class XLMXService {
     const { readStream, startDate, endDate, filteredData } =
       xlmxService.generateXlsxStream(data, "expenses");
 
-    const allToday = filteredData.every((item) =>
-      moment(item.created_date).isSame(moment(), "day")
+    const allSameDay = filteredData.every((item, _, arr) =>
+      moment(item.created_date).isSame(moment(arr[0].created_date), "day")
     );
 
-    const filename = allToday
+    const filename = allSameDay
       ? `transactions_${getTransactionDateFormat()}.xlsx`
       : `transactions_${getTransactionDateFormat(
           startDate
