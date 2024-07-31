@@ -73,8 +73,12 @@ class XLMXService {
       moment(item.created_date).isSame(moment(arr[0].created_date), "day")
     );
 
+    const firstTransaction = filteredData[0].created_date; // because each of them has the same day
+
     const filename = allSameDay
-      ? `transactions_${getTransactionDateFormat()}.xlsx`
+      ? `transactions_${getTransactionDateFormat(
+          moment(firstTransaction)
+        )}.xlsx`
       : `transactions_${getTransactionDateFormat(
           startDate
         )}_to_${getTransactionDateFormat(endDate)}.xlsx`;
