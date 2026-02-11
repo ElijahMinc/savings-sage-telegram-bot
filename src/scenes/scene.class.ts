@@ -3,7 +3,11 @@ import { Scenes } from "telegraf";
 
 export abstract class Scenario {
   scene:
-    | Scenes.BaseScene<SceneContexts<"TagScene" | "ExpenseTransactionScene">>
+    | Scenes.BaseScene<
+        SceneContexts<
+          "ExpenseTransactionScene" | "IncomeTransactionScene" | "TransactionsScene"
+        >
+      >
     | undefined;
 
   abstract handle(): void;

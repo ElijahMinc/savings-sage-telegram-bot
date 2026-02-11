@@ -1,42 +1,35 @@
 import cron from "node-cron";
-import { IBotContext, SessionData } from "@/context/context.interface";
+import { IBotContext } from "@/context/context.interface";
 import { xlmxService } from "@/services/XLMX.service";
-import cronTaskTrackerService from "@/services/CronTaskTrackerService";
 import * as emoji from "node-emoji";
 import { dailyReportCRONMask } from "@/constants";
 import { transactionService } from "@/services/TransactionService";
+import { reportJobService } from "@/services/ReportJobService";
+import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
 
 const recycleEmoji = emoji.get("recycle");
 const checkMarkEmoji = emoji.get("white_check_mark");
 
 export const dailyReportMiddleware =
-  () => async (ctx: IBotContext, next: any) => {
-    const session = ctx.session;
-    const fromId = ctx?.from?.id;
-    const chatId = ctx?.chat?.id;
+  () => async (ctx: IBotContext, next: () => Promise<void>) => {
+    const key = getSessionKeyFromContext(ctx);
 
-    if (!fromId || !chatId) {
-      next(ctx);
-
+    if (!key) {
+      await next();
       return;
     }
 
-    const key = `${ctx.chat.id}:${ctx.from.id}`;
+    const alreadyPending = await reportJobService.hasPendingJob(key);
 
-    const sessionFromDb = await transactionService.findTransactionByKey(key);
+    if (alreadyPending) {
+      await next();
+      return;
+    }
 
-    console.log(
-      "BEFORE CRON:TASKS keys:",
-      Array.from(cronTaskTrackerService.keys())
-    );
+    const created = await reportJobService.tryCreatePendingJob(key, new Date());
 
-    console.log(`Current session of ${key} user`, sessionFromDb);
-
-    const cronUserTask = cronTaskTrackerService.get(key);
-
-    if (!!cronUserTask && !!sessionFromDb?.isDailyFileReport) {
-      next(ctx);
-
+    if (!created) {
+      await next();
       return;
     }
 
@@ -45,30 +38,20 @@ export const dailyReportMiddleware =
       async () => {
         setImmediate(() => {
           cronTask.stop();
-          cronTaskTrackerService.delete(key);
-
-          console.log(`Immediately finalized for: ${key}`);
         });
 
         try {
-          const userSessionFromDb =
-            await transactionService.findTransactionByKey(key);
+          const expenses = await transactionService.getExpensesByKey(key);
 
-          if (!userSessionFromDb) return;
-
-          const expenses = userSessionFromDb?.expenses || [];
-
-          if (!expenses || !expenses?.length) {
+          if (!expenses.length) {
+            await reportJobService.clearPendingJob(key);
             return;
           }
 
           const { filename, readStream } =
             xlmxService.getReadStreamByData(expenses);
 
-          await transactionService.updateTransactionByKey(key, {
-            expenses: [],
-            isDailyFileReport: false,
-          });
+          await transactionService.clearExpensesByKey(key);
 
           await ctx.replyWithDocument({
             source: readStream,
@@ -78,9 +61,12 @@ export const dailyReportMiddleware =
           await ctx.replyWithMarkdown(
             `${checkMarkEmoji} The expense session has been recorded and saved in the XLSX file *${filename}* for the daily report (UTC time).
      
-${recycleEmoji} *The session has been reset in the application*`
+${recycleEmoji} *The session has been reset in the application*`,
           );
+
+          await reportJobService.markCompleted(key);
         } catch (error) {
+          await reportJobService.clearPendingJob(key);
           console.log("CRON ERROR", error);
         }
       },
@@ -88,16 +74,8 @@ ${recycleEmoji} *The session has been reset in the application*`
         scheduled: true,
         timezone: "UTC",
         name: key,
-      }
+      },
     );
 
-    session.isDailyFileReport = true;
-    cronTaskTrackerService.set(key, cronTask);
-
-    console.log(
-      "AFTER CRON:TASKS keys",
-      Array.from(cronTaskTrackerService.keys())
-    );
-
-    next(ctx);
+    await next();
   };

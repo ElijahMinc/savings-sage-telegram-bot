@@ -9,25 +9,12 @@ export class TransactionCommand extends Command {
   }
 
   handle(): void {
-    this.transactionControlCommand();
+    this.transactionsCommand();
   }
 
-  transactionControlCommand() {
-    this.bot.command(COMMAND_NAMES.TRANSACTION, (ctx) => {
-      const mode = ctx.session.mode;
-
-      if (!mode) {
-        ctx.reply(
-          `Please, choose mode first using command /${COMMAND_NAMES.CHANGE_MODE}`
-        );
-        return;
-      }
-
-      (ctx as any).scene.enter(
-        mode === "expense"
-          ? SCENES_NAMES.EXPENSES_SCENE
-          : SCENES_NAMES.INCOME_SCENE
-      );
+  transactionsCommand() {
+    this.bot.command(COMMAND_NAMES.TRANSACTIONS, (ctx) => {
+      (ctx as any).scene.enter(SCENES_NAMES.TRANSACTIONS_SCENE);
     });
   }
 }

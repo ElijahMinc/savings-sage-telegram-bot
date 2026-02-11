@@ -1,11 +1,6 @@
 import { IEncryptedData } from "@/helpers/encrypt";
 import { Context, Scenes } from "telegraf";
-import {
-  BaseScene,
-  Stage,
-  SceneContextScene,
-  SceneContext,
-} from "telegraf/typings/scenes";
+import { SceneContext } from "telegraf/typings/scenes";
 
 export enum CURRENCIES {
   DOLLAR = "USD",
@@ -13,35 +8,57 @@ export enum CURRENCIES {
   GRIVNA = "UAH",
 }
 
-interface TagScene extends Scenes.SceneSessionData {}
-
 interface ExpenseTransactionScene extends Scenes.SceneSessionData {
-  choosenTag?: string;
+  pendingAmount?: number;
+  pendingAmountLabel?: string;
+  pendingCategories?: string[];
+  awaitingCustomCategory?: boolean;
+}
+
+interface IncomeTransactionScene extends Scenes.SceneSessionData {
+  chosenCategory?: string;
+}
+
+interface TransactionsScene extends Scenes.SceneSessionData {
+  currentPage?: number;
+  panelMessageId?: number;
+  targetTransactionId?: number;
+  targetTransactionType?: TransactionType;
+  editMode?: "amount" | "category";
 }
 
 export interface IAmountData {
   id: number;
-  tag: string;
+  category: string;
+  // Legacy DB field. Old records may still contain `tag`.
+  tag?: string;
   amount: IEncryptedData | number;
   currency: string;
   created_date: Date;
 }
 
-export interface SessionData {
-  mode: "income" | "expense";
-  expenses: IAmountData[];
-  income: IAmountData[];
-  tags: string[];
-  isDailyFileReport: boolean;
+export type TransactionType = "expense" | "income";
+
+export interface ITransactionRecord extends IAmountData {
+  key: string;
+  type: TransactionType;
 }
 
-// Определяем интерфейс контекста бота
+export interface SessionData {
+  monthlySavingsGoal?: IEncryptedData | number;
+  savingsGoalExtraAmount?: IEncryptedData | number;
+  savingsGoalCarryoverDate?: string;
+  savingsGoalCarryoverAmount?: IEncryptedData | number;
+}
+
 export interface IBotContext extends Context {
   session: SessionData;
 }
 
-export type SceneContexts<Type> = Type extends "TagScene"
-  ? IBotContext & SceneContext<TagScene>
-  : Type extends "ExpenseTransactionScene"
+export type SceneContexts<Type> = Type extends "ExpenseTransactionScene"
   ? IBotContext & SceneContext<ExpenseTransactionScene>
-  : never;
+  : Type extends "IncomeTransactionScene"
+    ? IBotContext & SceneContext<IncomeTransactionScene>
+    : Type extends "TransactionsScene"
+      ? IBotContext & SceneContext<TransactionsScene>
+    : never;

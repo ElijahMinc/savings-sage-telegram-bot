@@ -8,4 +8,15 @@ const CONNECT_DB = process.env.MONGODB_CONNECT_DB_URL!.replace(
 const client = new MongoClient(CONNECT_DB, { monitorCommands: true });
 const mongoDbClient = client.db();
 
-export { mongoDbClient };
+let isConnected = false;
+
+const connectToMongo = async () => {
+  if (isConnected) {
+    return;
+  }
+
+  await client.connect();
+  isConnected = true;
+};
+
+export { mongoDbClient, connectToMongo };

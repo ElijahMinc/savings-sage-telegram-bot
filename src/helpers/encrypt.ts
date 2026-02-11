@@ -1,4 +1,3 @@
-import { iv } from "@/constants";
 import crypto from "crypto";
 
 export interface IEncryptedData {
@@ -7,6 +6,7 @@ export interface IEncryptedData {
 }
 
 export const encrypt = (data: any): IEncryptedData => {
+  const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv(
     process.env.ALGORITHM!,
     process.env.SECRET_KEY!,

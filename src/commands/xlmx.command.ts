@@ -1,24 +1,46 @@
 import { Telegraf } from "telegraf";
-import { IBotContext, SceneContexts } from "@context/context.interface";
+import { IBotContext } from "@context/context.interface";
 import { Command } from "./command.class";
 import { xlmxService } from "@/services/XLMX.service";
 import { COMMAND_NAMES } from "@/constants";
+import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
+import { transactionService } from "@/services/TransactionService";
+import { getDecryptedNumber } from "@/helpers/encryptedNumber.helper";
 export class XLMXCommand extends Command {
   constructor(public bot: Telegraf<IBotContext>) {
     super(bot);
   }
 
   handle(): void {
-    this.bot.command(COMMAND_NAMES.DOWNLOAD_ANALYTICS, (ctx) => {
-      const data = (ctx as any).session?.expenses;
+    this.bot.command(COMMAND_NAMES.ANALYTICS, async (ctx) => {
+      const key = getSessionKeyFromContext(ctx);
 
-      if (!data || !data?.length) {
+      if (!key) {
+        await ctx.reply("Cannot resolve session key for current chat");
+        return;
+      }
+
+      const [expenses, income] = await Promise.all([
+        transactionService.getExpensesByKey(key),
+        transactionService.getIncomeByKey(key),
+      ]);
+
+      if ((!expenses || !expenses.length) && (!income || !income.length)) {
         return ctx.reply("There is no data");
       }
 
-      const { filename, readStream } = xlmxService.getReadStreamByData(data);
+      const monthlySavingsGoal = getDecryptedNumber(
+        ctx.session.monthlySavingsGoal,
+      );
 
-      ctx.reply("Your report below (UTC):");
+      const { filename, readStream } =
+        xlmxService.getMonthlyAnalyticsReadStream(
+          expenses,
+          income,
+          monthlySavingsGoal,
+        );
+
+      ctx.reply("Your monthly analytics report below:");
 
       ctx
         .replyWithDocument({

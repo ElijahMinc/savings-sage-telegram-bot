@@ -9,17 +9,20 @@ import { commands } from "@/constants";
 import { IConfigService } from "@config/config.interface";
 import { ConfigService } from "@config/config.service";
 import { IBotContext } from "@context/context.interface";
-import { ModeCommand } from "@commands/mode.command";
-import { TagCommand } from "@commands/tag.command";
-import { TagScene } from "@scenes/tag.scene";
 import { Scenario } from "./scenes/scene.class";
 import { TransactionCommand } from "./commands/transaction.command";
 import { ExpenseTransactionScene } from "./scenes/expense-transaction.scene";
+import { IncomeTransactionScene } from "./scenes/income-transaction.scene";
+import { TransactionsScene } from "./scenes/transactions.scene";
 import { XLMXCommand } from "./commands/xlmx.command";
-import { Db, MongoClient } from "mongodb";
+import { ReminderCommand } from "./commands/reminder.command";
+import { BalanceCommand } from "./commands/balance.command";
+import { SavingsGoalCommand } from "./commands/limit.command";
 import { session } from "telegraf-session-mongodb";
-import { dailyReportMiddleware } from "./middlewares/dailyReport.middleware";
-import { mongoDbClient } from "./db/connection";
+import { connectToMongo, mongoDbClient } from "./db/connection";
+import { defaultSessionMiddleware } from "./middlewares/defaultSession.middleware";
+import { getSessionKeyFromContext } from "./helpers/getSessionKey.helper";
+import { expenseReminderWorker } from "./workers/expenseReminder.worker";
 
 class Bot {
   bot: Telegraf<IBotContext>;
@@ -28,7 +31,7 @@ class Bot {
 
   constructor(private readonly configService: IConfigService) {
     this.bot = new Telegraf<IBotContext>(
-      process.env.BOT_TOKEN! || this.configService.get("BOT_TOKEN")
+      process.env.BOT_TOKEN! || this.configService.get("BOT_TOKEN"),
     );
 
     this.bot.use(Telegraf.log()).middleware();
@@ -46,15 +49,20 @@ class Bot {
     this.commands = [
       // Scene to commands trigger
       new XLMXCommand(this.bot),
-      new ModeCommand(this.bot),
-      new TagCommand(this.bot),
+      new BalanceCommand(this.bot),
+      new SavingsGoalCommand(this.bot),
+      new ReminderCommand(this.bot),
       new TransactionCommand(this.bot),
 
       // START
       new StartCommand(this.bot),
     ];
 
-    this.scenarios = [new TagScene(), new ExpenseTransactionScene()];
+    this.scenarios = [
+      new ExpenseTransactionScene(),
+      new IncomeTransactionScene(),
+      new TransactionsScene(),
+    ];
     const scenes: any[] = [];
 
     this.scenarios.forEach((scenario) => {
@@ -64,13 +72,13 @@ class Bot {
 
     const stages: any = new Scenes.Stage(scenes);
 
-    this.bot.use(dailyReportMiddleware());
-
     this.bot.use(stages.middleware());
 
     for (const command of this.commands) {
       command.handle();
     }
+
+    expenseReminderWorker.start(this.bot);
 
     console.time("Launching time");
     this.bot.launch();
@@ -82,12 +90,17 @@ const bot = new Bot(new ConfigService());
 
 const start = async () => {
   try {
+    await connectToMongo();
+
     const sessions = session(mongoDbClient, {
       sessionName: "session",
       collectionName: "sessions",
+      sessionKeyFn: ((ctx: IBotContext) =>
+        getSessionKeyFromContext(ctx) as any) as any,
     });
 
     bot.bot.use(sessions);
+    bot.bot.use(defaultSessionMiddleware());
 
     bot.init();
   } catch (error) {

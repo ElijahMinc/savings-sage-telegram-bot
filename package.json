@@ -27,6 +27,7 @@
     "@typescript-eslint/eslint-plugin": "^7.16.1",
     "@typescript-eslint/parser": "^7.16.1",
     "axios": "^1.7.2",
+    "date-fns": "^4.1.0",
     "dotenv": "^16.4.5",
     "eslint": "^9.7.0",
     "eslint-plugin-import": "^2.29.1",
@@ -43,15 +44,16 @@
     "telegraf-session-local": "^2.1.1",
     "telegraf-session-mongodb": "^2.0.2",
     "typescript": "^5.5.3",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "xlsx-style": "^0.8.13"
   },
   "_moduleAliases": {
-    "@": "dist/",
-    "@commands": "dist/commands",
-    "@services": "dist/services",
-    "@config": "dist/config",
-    "@context": "dist/context",
-    "@server": "dist/server",
-    "@scenes": "dist/scenes"
+    "@": "src/",
+    "@commands": "src/commands",
+    "@services": "src/services",
+    "@config": "src/config",
+    "@context": "src/context",
+    "@server": "src/server",
+    "@scenes": "src/scenes"
   }
 }
