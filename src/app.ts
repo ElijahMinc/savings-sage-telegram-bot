@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-import "module-alias/register";
+import "./register-aliases";
 
 import { Scenes, Telegraf } from "telegraf";
 import { Command } from "@commands/command.class";
