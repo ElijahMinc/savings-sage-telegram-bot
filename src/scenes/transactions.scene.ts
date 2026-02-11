@@ -139,20 +139,20 @@ export class TransactionsScene extends Scenario {
     for (const item of items) {
       rows.push([
         Markup.button.callback(
-          "вњЏпёЏ Edit",
+          "✏️ Edit",
           `${ACTION_EDIT_PREFIX}${item.type}_${item.id}`,
         ),
         Markup.button.callback(
-          "рџ—‘ Delete",
+          "🗑️ Delete",
           `${ACTION_DELETE_PREFIX}${item.type}_${item.id}`,
         ),
       ]);
     }
 
     rows.push([
-      Markup.button.callback("в¬…пёЏ Back", hasPrev ? ACTION_PAGE_PREV : "noop"),
-      Markup.button.callback("вћЎпёЏ Next", hasNext ? ACTION_PAGE_NEXT : "noop"),
-      Markup.button.callback("вќЊ Close", ACTION_CLOSE),
+      Markup.button.callback("⬅️ Back", hasPrev ? ACTION_PAGE_PREV : "noop"),
+      Markup.button.callback("➡️ Next", hasNext ? ACTION_PAGE_NEXT : "noop"),
+      Markup.button.callback("❌ Close", ACTION_CLOSE),
     ]);
 
     return Markup.inlineKeyboard(rows);
@@ -607,5 +607,4 @@ export class TransactionsScene extends Scenario {
     });
   }
 }
-
 

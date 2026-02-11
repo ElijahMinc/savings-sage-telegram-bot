@@ -9,6 +9,7 @@ import { IEncryptedData } from "@/helpers/encrypt";
 import { getFixedAmount } from "@/helpers/getFixedAmount";
 import moment from "moment";
 import { getDecryptedNumber } from "@/helpers/encryptedNumber.helper";
+import { getLimitSnapshot } from "@/helpers/limitSnapshot.helper";
 import * as emoji from "node-emoji";
 
 export class BalanceCommand extends Command {
@@ -60,6 +61,23 @@ export class BalanceCommand extends Command {
       const monthlySavingsGoal = getDecryptedNumber(
         ctx.session.monthlySavingsGoal,
       );
+      const now = moment();
+      const dailyLimitSnapshot =
+        monthlySavingsGoal != null
+          ? getLimitSnapshot({
+              monthlyIncome,
+              monthlyExpenses,
+              monthlySavingsGoal,
+              daysInMonth: now.daysInMonth(),
+              currentDayOfMonth: now.date(),
+            })
+          : null;
+      const amountPerDay =
+        dailyLimitSnapshot != null ? dailyLimitSnapshot.autoDailyLimit : null;
+      const todayLine =
+        amountPerDay != null
+          ? `Today: ${getFixedAmount(spentToday)} / ${getFixedAmount(amountPerDay)} EUR`
+          : `Today: ${getFixedAmount(spentToday)} EUR`;
 
       const overspendAmount = monthlyExpenses - monthlyIncome;
       const savingsGoalLine =
@@ -75,7 +93,7 @@ export class BalanceCommand extends Command {
         overspendAmount > 0
           ? `Balance
 
-Today: ${getFixedAmount(spentToday)} EUR
+${todayLine}
 
 ${emoji.get("warning")} Over budget by ${getFixedAmount(overspendAmount)} EUR
 (Income ${getFixedAmount(monthlyIncome)} / Expenses ${getFixedAmount(monthlyExpenses)})
@@ -85,7 +103,7 @@ Month balance (with savings goal): ${monthBalanceWithSavingsGoalLine}
 Savings goal: ${savingsGoalLine}`
           : `Balance
 
-Today: ${getFixedAmount(spentToday)} EUR
+${todayLine}
 
 Month balance: ${getFixedAmount(monthlyIncome - monthlyExpenses)} EUR ${emoji.get("white_check_mark")}
 (${getFixedAmount(monthlyIncome)} in / ${getFixedAmount(monthlyExpenses)} out)
