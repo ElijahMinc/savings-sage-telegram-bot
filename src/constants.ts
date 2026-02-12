@@ -108,6 +108,8 @@ Commands:
 
 4) ${emoji.get("receipt")} /${COMMAND_NAMES.TRANSACTIONS} - view and edit transactions;
 
+5) ${emoji.get("bell")} /${COMMAND_NAMES.REMIND} - recurring expense reminders;
+
 `;
 
 export const TRANSACTION_RULES_MESSAGE = `
