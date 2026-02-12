@@ -130,7 +130,7 @@ export class StartCommand extends Command {
       );
     }
 
-    rows.push([Markup.button.callback("Other...", QUICK_CATEGORY_OTHER)]);
+    rows.push([Markup.button.callback("Custom", QUICK_CATEGORY_OTHER)]);
     rows.push([Markup.button.callback("Cancel", QUICK_CATEGORY_CANCEL)]);
 
     return Markup.inlineKeyboard(rows);
@@ -538,4 +538,3 @@ Try these commands: /${COMMAND_NAMES.TRANSACTIONS}, /${COMMAND_NAMES.BALANCE}, /
     });
   }
 }
-

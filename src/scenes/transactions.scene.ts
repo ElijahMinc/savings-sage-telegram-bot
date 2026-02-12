@@ -103,7 +103,10 @@ export class TransactionsScene extends Scenario {
       safePage,
       ITEMS_PER_PAGE,
     );
-    const maxPage = Math.max(Math.ceil(firstAttempt.total / ITEMS_PER_PAGE) - 1, 0);
+    const maxPage = Math.max(
+      Math.ceil(firstAttempt.total / ITEMS_PER_PAGE) - 1,
+      0,
+    );
     const resolvedPage = Math.min(safePage, maxPage);
 
     if (resolvedPage === safePage) {
@@ -173,9 +176,15 @@ export class TransactionsScene extends Scenario {
     }
 
     try {
-      await ctx.telegram.editMessageText(chatId, state.panelMessageId, undefined, text, {
-        reply_markup: keyboard.reply_markup,
-      });
+      await ctx.telegram.editMessageText(
+        chatId,
+        state.panelMessageId,
+        undefined,
+        text,
+        {
+          reply_markup: keyboard.reply_markup,
+        },
+      );
     } catch (error) {
       const message = (error as Error)?.message ?? "";
 
@@ -187,9 +196,9 @@ export class TransactionsScene extends Scenario {
 
   private buildEditMenuKeyboard() {
     return Markup.inlineKeyboard([
-      [Markup.button.callback("рџ’° Change amount", ACTION_EDIT_AMOUNT)],
-      [Markup.button.callback("рџЏ· Change category", ACTION_EDIT_CATEGORY)],
-      [Markup.button.callback("в†©пёЏ Back", ACTION_BACK_TO_LIST)],
+      [Markup.button.callback("Change amount", ACTION_EDIT_AMOUNT)],
+      [Markup.button.callback("Change category", ACTION_EDIT_CATEGORY)],
+      [Markup.button.callback("Back", ACTION_BACK_TO_LIST)],
     ]);
   }
 
@@ -197,17 +206,17 @@ export class TransactionsScene extends Scenario {
     return Markup.inlineKeyboard([
       [
         Markup.button.callback(
-          "вњ… Yes",
+          "Yes",
           `${ACTION_DELETE_CONFIRM_PREFIX}${transaction.type}_${transaction.id}`,
         ),
-        Markup.button.callback("в†©пёЏ Cancel", ACTION_BACK_TO_LIST),
+        Markup.button.callback("Cancel", ACTION_BACK_TO_LIST),
       ],
     ]);
   }
 
   private buildEditInputKeyboard() {
     return Markup.inlineKeyboard([
-      [Markup.button.callback("в†©пёЏ Back", ACTION_BACK_TO_LIST)],
+      [Markup.button.callback("Back", ACTION_BACK_TO_LIST)],
     ]);
   }
 
@@ -250,7 +259,9 @@ export class TransactionsScene extends Scenario {
   ) {
     const page = this.getState(ctx).currentPage ?? 0;
     const { items } = await this.getPageData(key, page);
-    const transaction = items.find((item) => item.id === id && item.type === type);
+    const transaction = items.find(
+      (item) => item.id === id && item.type === type,
+    );
 
     if (!transaction) {
       await this.renderList(ctx, key, page, "Transaction not found.");
@@ -281,7 +292,9 @@ export class TransactionsScene extends Scenario {
   ) {
     const page = this.getState(ctx).currentPage ?? 0;
     const { items } = await this.getPageData(key, page);
-    const transaction = items.find((item) => item.id === id && item.type === type);
+    const transaction = items.find(
+      (item) => item.id === id && item.type === type,
+    );
 
     if (!transaction) {
       await this.renderList(ctx, key, page, "Transaction not found.");
@@ -607,4 +620,3 @@ export class TransactionsScene extends Scenario {
     });
   }
 }
-

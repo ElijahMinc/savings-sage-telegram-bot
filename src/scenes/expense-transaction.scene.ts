@@ -152,7 +152,7 @@ export class ExpenseTransactionScene extends Scenario {
     }
 
     rows.push([
-      Markup.button.callback("Other...", TRANSACTION_COMMANDS.CUSTOM_CATEGORY),
+      Markup.button.callback("Custom...", TRANSACTION_COMMANDS.CUSTOM_CATEGORY),
     ]);
     rows.push([Markup.button.callback("Cancel", SCENES_NAMES.EXIT_FROM_SCENE)]);
 
