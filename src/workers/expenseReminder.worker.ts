@@ -130,11 +130,17 @@ class ExpenseReminderWorker {
 
           if (expenses.length || income.length) {
             const { filename, readStream } =
-              xlmxService.getMonthlyAnalyticsReadStream(
-                expenses,
-                income,
-                monthlySavingsGoal,
-              );
+              job.scheduleType === "end_of_day"
+                ? xlmxService.getDailyAnalyticsReadStream(
+                    expenses,
+                    income,
+                    monthlySavingsGoal,
+                  )
+                : xlmxService.getMonthlyAnalyticsReadStream(
+                    expenses,
+                    income,
+                    monthlySavingsGoal,
+                  );
 
             await bot.telegram.sendDocument(job.chatId, {
               source: readStream,

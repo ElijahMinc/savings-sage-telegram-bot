@@ -18,9 +18,12 @@ class XLMXService {
     return Number(decrypt(item.amount as IEncryptedData));
   }
 
-  private getCurrentMonthData<T extends IAmountData>(data: T[]) {
+  private getDataForCurrentPeriod<T extends IAmountData>(
+    data: T[],
+    period: "day" | "month",
+  ) {
     const now = moment();
-    return data.filter((item) => moment(item.created_date).isSame(now, "month"));
+    return data.filter((item) => moment(item.created_date).isSame(now, period));
   }
 
   generateXlsx<T>(data: T[]) {
@@ -105,15 +108,17 @@ class XLMXService {
     return { readStream, filename };
   }
 
-  getMonthlyAnalyticsReadStream<T extends IAmountData>(
+  private getAnalyticsReadStream<T extends IAmountData>(
     expensesInput: T[],
     incomeInput: T[],
     monthlySavingsGoal?: number,
+    period: "day" | "month" = "month",
   ) {
-    const expenses = this.getCurrentMonthData(expensesInput);
-    const income = this.getCurrentMonthData(incomeInput);
+    const expenses = this.getDataForCurrentPeriod(expensesInput, period);
+    const income = this.getDataForCurrentPeriod(incomeInput, period);
     const now = moment();
-    const monthLabel = now.format("YYYY-MM");
+    const periodLabel =
+      period === "day" ? now.format("YYYY-MM-DD") : now.format("YYYY-MM");
 
     const transactionRows = [
       ...income.map((item) => ({
@@ -198,7 +203,7 @@ class XLMXService {
         ]);
       });
     } else {
-      rows.push(["No expense categories for current month."]);
+      rows.push([`No expense categories for current ${period}.`]);
     }
 
     rows.push(
@@ -227,8 +232,36 @@ class XLMXService {
 
     return {
       readStream,
-      filename: `monthly_analytics_${monthLabel}.xlsx`,
+      filename: `${
+        period === "day" ? "daily_analytics" : "monthly_analytics"
+      }_${periodLabel}.xlsx`,
     };
+  }
+
+  getMonthlyAnalyticsReadStream<T extends IAmountData>(
+    expensesInput: T[],
+    incomeInput: T[],
+    monthlySavingsGoal?: number,
+  ) {
+    return this.getAnalyticsReadStream(
+      expensesInput,
+      incomeInput,
+      monthlySavingsGoal,
+      "month",
+    );
+  }
+
+  getDailyAnalyticsReadStream<T extends IAmountData>(
+    expensesInput: T[],
+    incomeInput: T[],
+    monthlySavingsGoal?: number,
+  ) {
+    return this.getAnalyticsReadStream(
+      expensesInput,
+      incomeInput,
+      monthlySavingsGoal,
+      "day",
+    );
   }
 }
 
