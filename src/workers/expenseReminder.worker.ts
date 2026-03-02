@@ -20,6 +20,7 @@ import {
   addMonths,
   endOfMonth,
   isAfter,
+  isSameDay,
   set,
 } from "date-fns";
 
@@ -45,6 +46,21 @@ class ExpenseReminderWorker {
     }
 
     return Number(decrypt(amount as IEncryptedData));
+  }
+
+  private getScopedExpenses(
+    expenses: IAmountData[],
+    scheduleType: ExpenseReminderScheduleType,
+    baseDate: Date,
+  ) {
+    switch (scheduleType) {
+      case "end_of_day":
+        return expenses.filter((expense) =>
+          isSameDay(new Date(expense.created_date), baseDate),
+        );
+      default:
+        return expenses;
+    }
   }
 
   private getNextEndOfDayRun(baseDate: Date) {
@@ -123,7 +139,12 @@ class ExpenseReminderWorker {
           const monthlySavingsGoal = getDecryptedNumber(
             sessionData?.monthlySavingsGoal,
           );
-          const total = expenses.reduce(
+          const scopedExpenses = this.getScopedExpenses(
+            expenses,
+            job.scheduleType,
+            new Date(),
+          );
+          const total = scopedExpenses.reduce(
             (acc, expense) => acc + this.parseAmount(expense.amount),
             0,
           );
@@ -150,7 +171,7 @@ class ExpenseReminderWorker {
 
           await bot.telegram.sendMessage(
             job.chatId,
-            `Reminder: total expenses now are ${getFixedAmount(total)} EUR (${expenses.length} transactions).`,
+            `Reminder: total expenses now are ${getFixedAmount(total)} EUR (${scopedExpenses.length} transactions).`,
           );
 
           const nextRunAt = this.getNextRunAt(job);
