@@ -1,10 +1,10 @@
-//@ts-ignore
 import { google } from "googleapis";
 import { IConfigService } from "@config/config.interface";
 import { SCOPES } from "@/constants";
 import { ConfigService } from "@/config/config.service";
 
 class GoogleOAuthService {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   oauth2Client: any;
 
   constructor(private readonly configService: IConfigService) {

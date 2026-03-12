@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { IAmountData } from "@/context/context.interface";
 import { decrypt } from "@/helpers/decrypt";
 import { IEncryptedData } from "@/helpers/encrypt";

@@ -25,6 +25,7 @@ class TransactionService {
           ? record.tag
           : "Other";
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { tag: _legacyTag, ...rest } = record;
 
     return {
@@ -47,6 +48,7 @@ class TransactionService {
     type: TransactionType,
     transaction: IAmountData,
   ) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { tag: _legacyTag, ...payload } = transaction;
     await this.transactions.insertOne({ ...payload, key, type });
   }

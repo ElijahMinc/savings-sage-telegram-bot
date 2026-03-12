@@ -1,4 +1,4 @@
-//@ts-ignore
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export class ApiError extends Error {
   status: number;
   errors: any[];

@@ -1,4 +1,4 @@
-//@ts-ignore
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import express, { Express, Response } from "express";
 import configRouter from "./routers";
 import errorHandler from "./middleware/error.middleware";

@@ -1,4 +1,4 @@
-import { IBotContext, SceneContexts } from "@/context/context.interface";
+import { SceneContexts } from "@/context/context.interface";
 import { Scenes } from "telegraf";
 
 export abstract class Scenario {

@@ -5,6 +5,7 @@ export interface IEncryptedData {
   content: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const encrypt = (data: any): IEncryptedData => {
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv(

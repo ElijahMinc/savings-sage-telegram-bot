@@ -69,6 +69,7 @@ export const DEFAULT_INCOME_CATEGORIES = [
 export const DEFAULT_VALUE_SCENE_LIFECYCLE_IN_SECONDS = 30;
 
 export const regexAllSymbols = new RegExp(
+  // eslint-disable-next-line no-useless-escape
   /[\/+\-!@#$%^&*()_+=[\]{};:'",.<>?\\|`~]/,
 );
 

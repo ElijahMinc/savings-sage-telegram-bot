@@ -1,5 +1,4 @@
 import { Markup, Telegraf } from "telegraf";
-import { IBotContext } from "@context/context.interface";
 import { Command } from "./command.class";
 import {
   COMMAND_NAMES,
@@ -14,6 +13,7 @@ import {
   CURRENCIES,
   IAmountData,
   TransactionType,
+  IBotContext
 } from "@/context/context.interface";
 import { encrypt, IEncryptedData } from "@/helpers/encrypt";
 import { decrypt } from "@/helpers/decrypt";
@@ -104,6 +104,7 @@ export class StartCommand extends Command {
   }
 
   private hasActiveScene(ctx: IBotContext) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sceneContext = (ctx as any).scene;
     return Boolean(sceneContext?.current);
   }

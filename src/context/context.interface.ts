@@ -1,6 +1,6 @@
 import { IEncryptedData } from "@/helpers/encrypt";
 import { Context, Scenes } from "telegraf";
-import { SceneContext } from "telegraf/typings/scenes";
+import type { SceneContext } from "telegraf/scenes";
 
 export enum CURRENCIES {
   DOLLAR = "USD",

@@ -1,12 +1,13 @@
-//@ts-ignore
-import { NextFunction, Request, Response } from "express";
+import { 
+  // NextFunction,
+   Request, Response } from "express";
 import { ApiError } from "../services/ErrorService";
 
 export default function (
   err: ApiError | Error,
   req: Request,
   res: Response,
-  _next: NextFunction
+  // _next: NextFunction
 ) {
   console.log("res", res);
   if (err instanceof ApiError) {

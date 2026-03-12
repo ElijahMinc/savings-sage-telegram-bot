@@ -1,4 +1,3 @@
-//@ts-ignore
 import { NextFunction, Request, Response } from "express";
 import googleOAuthService from "../services/GoogleOAuthService";
 
@@ -9,6 +8,7 @@ export class GoogleOAuthController {
 
   async getOAuth2Callback(
     req: Request,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     res: Response & Partial<{ bot: any }>,
     next: NextFunction
   ) {

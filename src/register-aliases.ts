@@ -1,5 +1,5 @@
 import path from "path";
-const moduleAlias = require("module-alias");
+import moduleAlias from "module-alias";
 
 // Resolve aliases from current runtime root: `src` in ts-node, `dist` in build.
 const rootDir = __dirname;

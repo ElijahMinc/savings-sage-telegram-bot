@@ -14,6 +14,7 @@ export class TransactionCommand extends Command {
 
   transactionsCommand() {
     this.bot.command(COMMAND_NAMES.TRANSACTIONS, (ctx) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (ctx as any).scene.enter(SCENES_NAMES.TRANSACTIONS_SCENE);
     });
   }

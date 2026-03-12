@@ -1,4 +1,4 @@
-//@ts-ignore
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { google } from "googleapis";
 import { ConfigService } from "../../config/config.service";
 import { IConfigService } from "../../config/config.interface";
