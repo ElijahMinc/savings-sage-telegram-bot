@@ -1,30 +1,33 @@
-import { config, DotenvParseOutput } from "dotenv";
+import { config } from "dotenv";
 import { IConfigService } from "./config.interface";
 
 export class ConfigService implements IConfigService {
-  private config: DotenvParseOutput;
+  private readonly config: Record<string, string | undefined>;
 
   constructor() {
     const { error, parsed } = config();
 
-    if (error) {
-      throw new Error("The .env file was not found");
+    if (error && !this.isMissingEnvFileError(error)) {
+      throw new Error(`Failed to load environment variables: ${error.message}`);
     }
 
-    if (!parsed) {
-      throw new Error("The .env file is empty");
-    }
-
-    this.config = parsed;
+    this.config = {
+      ...parsed,
+      ...process.env,
+    };
   }
 
   get(key: string): string {
     const res = this.config[key];
 
     if (!res) {
-      throw new Error(`The key:${key} is not exist`);
+      throw new Error(`Environment variable "${key}" is not set`);
     }
 
     return res;
+  }
+
+  private isMissingEnvFileError(error: Error & { code?: string }): boolean {
+    return error.code === "ENOENT";
   }
 }
