@@ -290,16 +290,22 @@ export class ExpenseTransactionScene extends Scenario {
 
     const monthProgressLine =
       snapshot != null
-        ? `Available this month: ${getFixedAmount(snapshot.remainingExpenseBudget)} ${CURRENCIES.EURO}`
+        ? `Available this month: ${getFixedAmount(snapshot.displayRemainingExpenseBudget)} ${CURRENCIES.EURO}`
         : `Available this month: Set /${COMMAND_NAMES.SAVINGS_GOAL} <monthly-goal>.`;
+    const incomeExceededLine =
+      snapshot != null && snapshot.isIncomeExceeded
+        ? `\n${emoji.get("warning")} You've exceeded your income`
+        : "";
 
     const categoryLabel = category.startsWith("#") ? category : `#${category}`;
 
-    const separatorLine = isLimitConfigured && !isLimitExceeded ? "\n\n" : "\n";
+    const categoryToStatusSeparator =
+      isLimitConfigured && !isLimitExceeded ? "\n\n" : "\n";
+    const statusToMonthSeparator =
+      snapshot != null && snapshot.isIncomeExceeded ? "\n\n" : "\n";
 
     await ctx.reply(
-      `-${getFixedAmount(amount)} ${CURRENCIES.EURO} — ${categoryLabel}${separatorLine}${limitStatusLine}
-${monthProgressLine}`,
+      `-${getFixedAmount(amount)} ${CURRENCIES.EURO} — ${categoryLabel}${categoryToStatusSeparator}${limitStatusLine}${statusToMonthSeparator}${monthProgressLine}${incomeExceededLine}`,
       Markup.inlineKeyboard([
         [
           Markup.button.callback(
