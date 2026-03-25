@@ -98,48 +98,106 @@ class ExpenseReminderWorker {
     return total / 7;
   }
 
+  private hasEnoughSevenDayHistory(
+    expenses: IAmountData[],
+    income: IAmountData[],
+    baseDate: Date,
+  ) {
+    const historyCutoff = startOfDay(subDays(baseDate, 6));
+    const earliestKnownTransaction = [...expenses, ...income].reduce<
+      Date | null
+    >((earliest, item) => {
+      const createdAt = new Date(item.created_date);
+
+      if (earliest == null || createdAt < earliest) {
+        return createdAt;
+      }
+
+      return earliest;
+    }, null);
+
+    return (
+      earliestKnownTransaction != null &&
+      earliestKnownTransaction <= historyCutoff
+    );
+  }
+
+  private getDailyLimit(input: {
+    monthlyIncome: number;
+    monthlyExpenses: number;
+    monthlySavingsGoal: number | null;
+    baseDate: Date;
+  }) {
+    const snapshot = getLimitSnapshot({
+      monthlyIncome: input.monthlyIncome,
+      monthlyExpenses: input.monthlyExpenses,
+      monthlySavingsGoal: input.monthlySavingsGoal ?? 0,
+      daysInMonth: getDaysInMonth(input.baseDate),
+      currentDayOfMonth: input.baseDate.getDate(),
+    });
+
+    return snapshot.autoDailyLimit;
+  }
+
   private getDailyReminderThreshold(input: {
     baseDate: Date;
     expenses: IAmountData[];
     income: IAmountData[];
     monthlySavingsGoal: number | null;
   }) {
-    const averageDailyExpenses = this.getSevenDayAverageExpenses(
-      input.expenses,
-      input.baseDate,
-    );
-
-    if (input.monthlySavingsGoal == null) {
-      return {
-        threshold: averageDailyExpenses * 2,
-        sourceLabel: "2x 7-day average",
-      };
-    }
-
     const monthlyExpenses = this.getCurrentMonthTotal(
       input.expenses,
       input.baseDate,
     );
-    const monthlyIncome = this.getCurrentMonthTotal(input.income, input.baseDate);
-    const snapshot = getLimitSnapshot({
-      monthlyIncome,
-      monthlyExpenses,
-      monthlySavingsGoal: input.monthlySavingsGoal,
-      daysInMonth: getDaysInMonth(input.baseDate),
-      currentDayOfMonth: input.baseDate.getDate(),
-    });
+    const monthlyIncome = this.getCurrentMonthTotal(
+      input.income,
+      input.baseDate,
+    );
+    const realMonthlyBalance = monthlyIncome - monthlyExpenses;
+    const hasEnoughHistory = this.hasEnoughSevenDayHistory(
+      input.expenses,
+      input.income,
+      input.baseDate,
+    );
 
-    if (!snapshot.isIncomeExceeded) {
-      return {
-        threshold: snapshot.autoDailyLimit * 2,
-        sourceLabel: "2x daily limit",
-      };
+    if (realMonthlyBalance < 0) {
+      if (!hasEnoughHistory) {
+        return (monthlyIncome / getDaysInMonth(input.baseDate)) * 2;
+      }
+
+      return (
+        this.getSevenDayAverageExpenses(input.expenses, input.baseDate) * 1.5
+      );
     }
 
-    return {
-      threshold: averageDailyExpenses * 2,
-      sourceLabel: "2x 7-day average",
-    };
+    return (
+      this.getDailyLimit({
+        monthlyIncome,
+        monthlyExpenses,
+        monthlySavingsGoal: input.monthlySavingsGoal,
+        baseDate: input.baseDate,
+      }) * 2
+    );
+  }
+
+  private getDailyReminderSummary(input: {
+    total: number;
+    transactionCount: number;
+    monthlyIncome: number;
+    monthlyExpenses: number;
+  }) {
+    const realMonthlyBalance = input.monthlyIncome - input.monthlyExpenses;
+
+    if (realMonthlyBalance < 0) {
+      return (
+        `Today: ${getFixedAmount(input.total)} EUR (${input.transactionCount} transactions)\n\n` +
+        `⚠️ You are overspending your income\n` +
+        `Balance: ${getFixedAmount(realMonthlyBalance)} EUR\n` +
+        `(Income ${getFixedAmount(input.monthlyIncome)} / Expenses ${getFixedAmount(input.monthlyExpenses)})`
+      );
+    }
+
+    return `Daily reminder: ${getFixedAmount(input.total)} EUR spent today (${input.transactionCount} transactions).`;
   }
 
   private async sendDailyReminder(bot: Telegraf<IBotContext>, input: {
@@ -151,14 +209,28 @@ class ExpenseReminderWorker {
     transactionCount: number;
     baseDate: Date;
   }) {
-    const { threshold, sourceLabel } = this.getDailyReminderThreshold({
+    const monthlyExpenses = this.getCurrentMonthTotal(
+      input.expenses,
+      input.baseDate,
+    );
+    const monthlyIncome = this.getCurrentMonthTotal(
+      input.income,
+      input.baseDate,
+    );
+    const threshold = this.getDailyReminderThreshold({
       baseDate: input.baseDate,
       expenses: input.expenses,
       income: input.income,
       monthlySavingsGoal: input.monthlySavingsGoal,
     });
-    const shouldAttachReport = input.total > threshold;
-    const summary = `Daily reminder: ${getFixedAmount(input.total)} EUR spent today (${input.transactionCount} transactions). Threshold: ${getFixedAmount(threshold)} EUR (${sourceLabel}).`;
+    const shouldAttachReport =
+      input.transactionCount >= 10 || input.total >= threshold;
+    const summary = this.getDailyReminderSummary({
+      total: input.total,
+      transactionCount: input.transactionCount,
+      monthlyIncome,
+      monthlyExpenses,
+    });
 
     if (!shouldAttachReport) {
       await bot.telegram.sendMessage(input.chatId, summary);
@@ -178,7 +250,7 @@ class ExpenseReminderWorker {
         filename,
       },
       {
-        caption: `${summary} Detailed XLSX report attached.`,
+        caption: summary,
       },
     );
   }
