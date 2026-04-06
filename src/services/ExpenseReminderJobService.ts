@@ -19,6 +19,7 @@ export interface IExpenseReminderJob {
   scheduleType: ExpenseReminderScheduleType;
   attempts: number;
   maxAttempts: number;
+  timezone?: string;
   createdAt: Date;
   updatedAt: Date;
   lockedAt?: Date;
@@ -95,6 +96,7 @@ class ExpenseReminderJobService {
     maxAttempts?: number;
     scheduleType: ExpenseReminderScheduleType;
     runAt: Date;
+    timezone?: string;
   }) {
     await this.ensureIndexes();
 
@@ -113,6 +115,7 @@ class ExpenseReminderJobService {
           runAt: input.runAt,
           scheduleType: input.scheduleType,
           attempts: 0,
+          ...(input.timezone ? { timezone: input.timezone } : {}),
           updatedAt: now,
         },
         $setOnInsert: {
@@ -161,6 +164,25 @@ class ExpenseReminderJobService {
           updatedAt: new Date(),
         },
         $unset: { lockedAt: "", lastError: "" },
+      },
+    );
+  }
+
+  async syncPendingJobSchedule(
+    jobId: ObjectId,
+    input: {
+      runAt: Date;
+      timezone?: string;
+    },
+  ) {
+    await this.jobs.updateOne(
+      { _id: jobId, status: "pending" },
+      {
+        $set: {
+          runAt: input.runAt,
+          ...(input.timezone ? { timezone: input.timezone } : {}),
+          updatedAt: new Date(),
+        },
       },
     );
   }
@@ -231,6 +253,23 @@ class ExpenseReminderJobService {
     return this.jobs
       .find({ key, type: "expenses_total", status: { $ne: "failed" } })
       .sort({ runAt: 1 })
+      .toArray();
+  }
+
+  async getPendingTimezoneSensitiveJobs() {
+    await this.ensureIndexes();
+
+    return this.jobs
+      .find({
+        type: "expenses_total",
+        status: "pending",
+        scheduleType: {
+          $in: [
+            "end_of_day" satisfies ExpenseReminderScheduleType,
+            "end_of_month" satisfies ExpenseReminderScheduleType,
+          ],
+        },
+      })
       .toArray();
   }
 }

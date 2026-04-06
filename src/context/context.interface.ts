@@ -49,6 +49,7 @@ export interface SessionData {
   savingsGoalExtraAmount?: IEncryptedData | number;
   savingsGoalCarryoverDate?: string;
   savingsGoalCarryoverAmount?: IEncryptedData | number;
+  timezone?: string;
 }
 
 export interface IBotContext extends Context {

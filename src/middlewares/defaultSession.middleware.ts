@@ -4,6 +4,7 @@ import {
   encryptNumber,
   getDecryptedNumber,
 } from "@/helpers/encryptedNumber.helper";
+import { isValidReminderTimezone } from "@/helpers/reminderSchedule.helper";
 
 const defaultSessionData = (): SessionData => ({
 });
@@ -89,6 +90,12 @@ export const defaultSessionMiddleware =
       );
     }
 
+    if (
+      ctx.session.timezone != null &&
+      !isValidReminderTimezone(ctx.session.timezone)
+    ) {
+      ctx.session.timezone = undefined;
+    }
+
     await next();
   };
-

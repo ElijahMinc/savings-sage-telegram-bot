@@ -15,19 +15,14 @@ import { getLimitSnapshot } from "@/helpers/limitSnapshot.helper";
 import { Telegraf } from "telegraf";
 import cron, { ScheduledTask } from "node-cron";
 import {
-  addDays,
-  getDaysInMonth,
-  addHours,
-  addMinutes,
-  addMonths,
-  endOfMonth,
-  isAfter,
-  isSameDay,
-  set,
-  startOfDay,
-  startOfMonth,
-  subDays,
-} from "date-fns";
+  getNextReminderRunAt,
+  getReminderDayRange,
+  getReminderHistoryCutoff,
+  getReminderMonthMetrics,
+  getReminderMonthRange,
+  isTimezoneAwareReminderSchedule,
+  resolveReminderTimezone,
+} from "@/helpers/reminderSchedule.helper";
 
 class ExpenseReminderWorker {
   private task: ScheduledTask | null = null;
@@ -57,24 +52,33 @@ class ExpenseReminderWorker {
     expenses: IAmountData[],
     scheduleType: ExpenseReminderScheduleType,
     baseDate: Date,
+    timezone?: string | null,
   ) {
     switch (scheduleType) {
-      case "end_of_day":
-        return expenses.filter((expense) =>
-          isSameDay(new Date(expense.created_date), baseDate),
-        );
+      case "end_of_day": {
+        const dayRange = getReminderDayRange(baseDate, timezone);
+
+        return expenses.filter((expense) => {
+          const createdAt = new Date(expense.created_date);
+          return createdAt >= dayRange.start && createdAt <= dayRange.end;
+        });
+      }
       default:
         return expenses;
     }
   }
 
-  private getCurrentMonthTotal(items: IAmountData[], baseDate: Date) {
-    const monthStart = startOfMonth(baseDate);
+  private getCurrentMonthTotal(
+    items: IAmountData[],
+    baseDate: Date,
+    timezone?: string | null,
+  ) {
+    const monthRange = getReminderMonthRange(baseDate, timezone);
 
     return items.reduce((total, item) => {
       const createdAt = new Date(item.created_date);
 
-      if (createdAt < monthStart || createdAt > baseDate) {
+      if (createdAt < monthRange.start || createdAt > monthRange.end) {
         return total;
       }
 
@@ -82,8 +86,12 @@ class ExpenseReminderWorker {
     }, 0);
   }
 
-  private getSevenDayAverageExpenses(expenses: IAmountData[], baseDate: Date) {
-    const rangeStart = startOfDay(subDays(baseDate, 6));
+  private getSevenDayAverageExpenses(
+    expenses: IAmountData[],
+    baseDate: Date,
+    timezone?: string | null,
+  ) {
+    const rangeStart = getReminderHistoryCutoff(baseDate, timezone);
 
     const total = expenses.reduce((sum, expense) => {
       const createdAt = new Date(expense.created_date);
@@ -102,8 +110,9 @@ class ExpenseReminderWorker {
     expenses: IAmountData[],
     income: IAmountData[],
     baseDate: Date,
+    timezone?: string | null,
   ) {
-    const historyCutoff = startOfDay(subDays(baseDate, 6));
+    const historyCutoff = getReminderHistoryCutoff(baseDate, timezone);
     const earliestKnownTransaction = [...expenses, ...income].reduce<
       Date | null
     >((earliest, item) => {
@@ -127,13 +136,18 @@ class ExpenseReminderWorker {
     monthlyExpenses: number;
     monthlySavingsGoal: number | null;
     baseDate: Date;
+    timezone?: string | null;
   }) {
+    const monthMetrics = getReminderMonthMetrics(
+      input.baseDate,
+      input.timezone,
+    );
     const snapshot = getLimitSnapshot({
       monthlyIncome: input.monthlyIncome,
       monthlyExpenses: input.monthlyExpenses,
       monthlySavingsGoal: input.monthlySavingsGoal ?? 0,
-      daysInMonth: getDaysInMonth(input.baseDate),
-      currentDayOfMonth: input.baseDate.getDate(),
+      daysInMonth: monthMetrics.daysInMonth,
+      currentDayOfMonth: monthMetrics.currentDayOfMonth,
     });
 
     return snapshot.autoDailyLimit;
@@ -144,29 +158,39 @@ class ExpenseReminderWorker {
     expenses: IAmountData[];
     income: IAmountData[];
     monthlySavingsGoal: number | null;
+    timezone?: string | null;
   }) {
     const monthlyExpenses = this.getCurrentMonthTotal(
       input.expenses,
       input.baseDate,
+      input.timezone,
     );
     const monthlyIncome = this.getCurrentMonthTotal(
       input.income,
       input.baseDate,
+      input.timezone,
     );
     const realMonthlyBalance = monthlyIncome - monthlyExpenses;
     const hasEnoughHistory = this.hasEnoughSevenDayHistory(
       input.expenses,
       input.income,
       input.baseDate,
+      input.timezone,
     );
 
     if (realMonthlyBalance < 0) {
       if (!hasEnoughHistory) {
-        return (monthlyIncome / getDaysInMonth(input.baseDate)) * 2;
+        return (
+          monthlyIncome / getReminderMonthMetrics(input.baseDate, input.timezone).daysInMonth
+        ) * 2;
       }
 
       return (
-        this.getSevenDayAverageExpenses(input.expenses, input.baseDate) * 1.5
+        this.getSevenDayAverageExpenses(
+          input.expenses,
+          input.baseDate,
+          input.timezone,
+        ) * 1.5
       );
     }
 
@@ -176,6 +200,7 @@ class ExpenseReminderWorker {
         monthlyExpenses,
         monthlySavingsGoal: input.monthlySavingsGoal,
         baseDate: input.baseDate,
+        timezone: input.timezone,
       }) * 2
     );
   }
@@ -208,20 +233,24 @@ class ExpenseReminderWorker {
     total: number;
     transactionCount: number;
     baseDate: Date;
+    timezone?: string | null;
   }) {
     const monthlyExpenses = this.getCurrentMonthTotal(
       input.expenses,
       input.baseDate,
+      input.timezone,
     );
     const monthlyIncome = this.getCurrentMonthTotal(
       input.income,
       input.baseDate,
+      input.timezone,
     );
     const threshold = this.getDailyReminderThreshold({
       baseDate: input.baseDate,
       expenses: input.expenses,
       income: input.income,
       monthlySavingsGoal: input.monthlySavingsGoal,
+      timezone: input.timezone,
     });
     const shouldAttachReport =
       input.transactionCount >= 10 || input.total >= threshold;
@@ -255,55 +284,49 @@ class ExpenseReminderWorker {
     );
   }
 
-  private getNextEndOfDayRun(baseDate: Date) {
-    let next = set(baseDate, {
-      hours: 23,
-      minutes: 59,
-      seconds: 0,
-      milliseconds: 0,
+  private getNextRunAt(
+    job: IExpenseReminderJob,
+    timezone?: string | null,
+    baseDate?: Date,
+  ) {
+    return getNextReminderRunAt({
+      scheduleType: job.scheduleType,
+      baseDate,
+      timezone,
     });
-
-    if (!isAfter(next, baseDate)) {
-      next = addDays(next, 1);
-    }
-
-    return next;
   }
 
-  private getNextEndOfMonthRun(baseDate: Date) {
-    let next = set(endOfMonth(baseDate), {
-      hours: 23,
-      minutes: 59,
-      seconds: 0,
-      milliseconds: 0,
-    });
+  private async reconcilePendingTimezoneSensitiveJobs() {
+    const jobs = await expenseReminderJobService.getPendingTimezoneSensitiveJobs();
 
-    if (!isAfter(next, baseDate)) {
-      next = set(endOfMonth(addMonths(baseDate, 1)), {
-        hours: 23,
-        minutes: 59,
-        seconds: 0,
-        milliseconds: 0,
+    if (!jobs.length) {
+      return;
+    }
+
+    const timezoneByKey = new Map<string, string>();
+
+    for (const job of jobs) {
+      if (!job._id) {
+        continue;
+      }
+
+      let sessionTimezone = timezoneByKey.get(job.key);
+
+      if (!sessionTimezone) {
+        const sessionData = await sessionsService.getSessionDataByKey(job.key);
+        sessionTimezone = resolveReminderTimezone(sessionData?.timezone);
+        timezoneByKey.set(job.key, sessionTimezone);
+      }
+
+      if (job.timezone === sessionTimezone) {
+        continue;
+      }
+
+      const nextRunAt = this.getNextRunAt(job, sessionTimezone);
+      await expenseReminderJobService.syncPendingJobSchedule(job._id, {
+        runAt: nextRunAt,
+        timezone: sessionTimezone,
       });
-    }
-
-    return next;
-  }
-
-  private getNextRunAt(job: IExpenseReminderJob) {
-    const now = new Date();
-
-    switch (job.scheduleType as ExpenseReminderScheduleType) {
-      case "every_minute":
-        return addMinutes(now, 1);
-      case "every_hour":
-        return addHours(now, 1);
-      case "end_of_day":
-        return this.getNextEndOfDayRun(now);
-      case "end_of_month":
-        return this.getNextEndOfMonthRun(now);
-      default:
-        return addHours(now, 1);
     }
   }
 
@@ -315,6 +338,8 @@ class ExpenseReminderWorker {
     this.isTicking = true;
 
     try {
+      await this.reconcilePendingTimezoneSensitiveJobs();
+
       while (true) {
         const job = await expenseReminderJobService.claimNextDueJob(new Date());
 
@@ -329,12 +354,18 @@ class ExpenseReminderWorker {
             transactionService.getIncomeByKey(job.key),
             sessionsService.getSessionDataByKey(job.key),
           ]);
+          const timezone = resolveReminderTimezone(
+            isTimezoneAwareReminderSchedule(job.scheduleType)
+              ? sessionData?.timezone
+              : job.timezone,
+          );
           const monthlySavingsGoal =
             getDecryptedNumber(sessionData?.monthlySavingsGoal) ?? null;
           const scopedExpenses = this.getScopedExpenses(
             expenses,
             job.scheduleType,
             now,
+            timezone,
           );
           const total = scopedExpenses.reduce(
             (acc, expense) => acc + this.parseAmount(expense.amount),
@@ -350,6 +381,7 @@ class ExpenseReminderWorker {
               total,
               transactionCount: scopedExpenses.length,
               baseDate: now,
+              timezone,
             });
           } else {
             if (expenses.length || income.length) {
@@ -372,7 +404,7 @@ class ExpenseReminderWorker {
             );
           }
 
-          const nextRunAt = this.getNextRunAt(job);
+          const nextRunAt = this.getNextRunAt(job, timezone, now);
           await expenseReminderJobService.markExecutedAndRescheduled(
             job._id,
             nextRunAt,

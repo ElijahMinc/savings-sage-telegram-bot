@@ -8,15 +8,10 @@ import {
   ExpenseReminderScheduleType,
 } from "@/services/ExpenseReminderJobService";
 import {
-  addDays,
-  addHours,
-  addMinutes,
-  addMonths,
-  endOfMonth,
-  format,
-  isAfter,
-  set,
-} from "date-fns";
+  formatReminderRunAt,
+  getNextReminderRunAt,
+  resolveReminderTimezone,
+} from "@/helpers/reminderSchedule.helper";
 
 const MIN_SCHEDULE_AHEAD_MS = 30_000;
 const CALLBACK_PREFIX = "remind_preset:";
@@ -51,59 +46,12 @@ const PRESET_ALIASES: Record<string, ReminderPreset> = {
   end_of_month: "month_end",
 };
 
-const getNextEndOfDayRun = (baseDate: Date) => {
-  let next = set(baseDate, {
-    hours: 23,
-    minutes: 59,
-    seconds: 0,
-    milliseconds: 0,
+const getRunAtByPreset = (preset: ReminderPreset, timezone?: string) => {
+  return getNextReminderRunAt({
+    scheduleType: PRESET_TO_SCHEDULE[preset],
+    timezone,
   });
-
-  if (!isAfter(next, baseDate)) {
-    next = addDays(next, 1);
-  }
-
-  return next;
 };
-
-const getNextEndOfMonthRun = (baseDate: Date) => {
-  let next = set(endOfMonth(baseDate), {
-    hours: 23,
-    minutes: 59,
-    seconds: 0,
-    milliseconds: 0,
-  });
-
-  if (!isAfter(next, baseDate)) {
-    next = set(endOfMonth(addMonths(baseDate, 1)), {
-      hours: 23,
-      minutes: 59,
-      seconds: 0,
-      milliseconds: 0,
-    });
-  }
-
-  return next;
-};
-
-const getRunAtByPreset = (preset: ReminderPreset) => {
-  const now = new Date();
-
-  switch (preset) {
-    case "minute":
-      return addMinutes(now, 1);
-    case "hour":
-      return addHours(now, 1);
-    case "day_end":
-      return getNextEndOfDayRun(now);
-    case "month_end":
-      return getNextEndOfMonthRun(now);
-    default:
-      return addHours(now, 1);
-  }
-};
-
-const toDisplay = (date: Date) => format(date, "yyyy-MM-dd HH:mm");
 
 const toScheduleDescription = (preset: ReminderPreset) => {
   switch (preset) {
@@ -232,6 +180,7 @@ export class ReminderCommand extends Command {
   }
 
   private async showConfiguredReminders(ctx: IBotContext, key: string) {
+    const timezone = resolveReminderTimezone(ctx.session.timezone);
     const reminders = await expenseReminderJobService.getExpensesTotalJobsByKey(key);
 
     if (!reminders.length) {
@@ -240,8 +189,9 @@ export class ReminderCommand extends Command {
     }
 
     const reminderLines = reminders.map((reminder) => {
-      return `- ${toReminderLabel(reminder.scheduleType)}. Next run at ${toDisplay(
+      return `- ${toReminderLabel(reminder.scheduleType)}. Next run at ${formatReminderRunAt(
         reminder.runAt,
+        reminder.timezone ?? timezone,
       )}`;
     });
 
@@ -258,7 +208,8 @@ export class ReminderCommand extends Command {
     }
 
     const scheduleType = PRESET_TO_SCHEDULE[preset];
-    const runAt = getRunAtByPreset(preset);
+    const timezone = resolveReminderTimezone(ctx.session.timezone);
+    const runAt = getRunAtByPreset(preset, timezone);
 
     if (runAt.getTime() - Date.now() < MIN_SCHEDULE_AHEAD_MS) {
       await ctx.reply("Please choose another option; next run is too close.");
@@ -271,13 +222,15 @@ export class ReminderCommand extends Command {
       userId,
       scheduleType,
       runAt,
+      timezone,
     });
 
     const actionText = result.created ? "created" : "updated";
     await ctx.reply(
-      `Reminder ${actionText}. Next run at ${toDisplay(
+      `Reminder ${actionText}. Next run at ${formatReminderRunAt(
         runAt,
-      )}. Schedule: ${toScheduleDescription(preset)}.`,
+        timezone,
+      )}. Schedule: ${toScheduleDescription(preset)} (${timezone}).`,
     );
 
     await this.showConfiguredReminders(ctx, key);
