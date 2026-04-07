@@ -110,6 +110,7 @@ Commands:
 4) ${emoji.get("receipt")} /${COMMAND_NAMES.TRANSACTIONS} - view and edit transactions;
 
 5) ${emoji.get("bell")} /${COMMAND_NAMES.REMIND} - recurring expense reminders;
+   Note: reminders use your shared timezone; otherwise UTC.
 
 `;
 

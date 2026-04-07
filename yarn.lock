@@ -269,6 +269,11 @@
   resolved "https://registry.npmjs.org/@types/mime/-/mime-1.3.5.tgz"
   integrity sha512-/pyBZWSLD2n0dcHE3hq8s8ZvcETHtEuF+3E7XVt0Ig2nvsVQXdghHVcEkIWjy9A0wKfTn97a/PSDYohKIlnP/w==
 
+"@types/module-alias@^2.0.4":
+  version "2.0.4"
+  resolved "https://registry.npmjs.org/@types/module-alias/-/module-alias-2.0.4.tgz"
+  integrity sha512-5+G/QXO/DvHZw60FjvbDzO4JmlD/nG5m2/vVGt25VN1eeP3w2bCoks1Wa7VuptMPM1TxJdx6RjO70N9Fw0nZPA==
+
 "@types/moment-timezone@^0.5.30":
   version "0.5.30"
   resolved "https://registry.npmjs.org/@types/moment-timezone/-/moment-timezone-0.5.30.tgz"
@@ -329,6 +334,11 @@
   version "4.0.5"
   resolved "https://registry.npmjs.org/@types/tough-cookie/-/tough-cookie-4.0.5.tgz"
   integrity sha512-/Ad8+nIOV7Rl++6f1BdKxFSMgmoqEoYbHRpPcx3JEfv8VRsQe9Z4mCXeJBzxs7mbHY/XOZZuXlRNfhpVPbs6ZA==
+
+"@types/tz-lookup@^6.1.2":
+  version "6.1.2"
+  resolved "https://registry.npmjs.org/@types/tz-lookup/-/tz-lookup-6.1.2.tgz"
+  integrity sha512-9y31Xf/8FHXrCHjvVjGZLcsayAa6ABNc8bZlk6MPOQLLlr41tICSqW3TRPRIx2nodbzdKs5N7ipHWBrUsWUiAA==
 
 "@types/webidl-conversions@*":
   version "7.0.3"
@@ -1573,6 +1583,11 @@ fresh@0.5.2:
   resolved "https://registry.npmjs.org/fresh/-/fresh-0.5.2.tgz"
   integrity sha512-zJ2mQYM18rEFOudeV4GShTGIQ7RbzA7ozbU9I/XBpm7kqgMywgmylMwXHxZJmkVoYkna9d2pVXVXPdYTP9ej8Q==
 
+fsevents@~2.3.2:
+  version "2.3.3"
+  resolved "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz"
+  integrity sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==
+
 function-bind@^1.1.2:
   version "1.1.2"
   resolved "https://registry.npmjs.org/function-bind/-/function-bind-1.1.2.tgz"
@@ -1595,16 +1610,6 @@ functions-have-names@^1.2.3:
   resolved "https://registry.npmjs.org/functions-have-names/-/functions-have-names-1.2.3.tgz"
   integrity sha512-xckBUXyTIqT97tq2x2AMb+g163b5JFysYk0x4qxNFwbfQkmNZoiRHb6sPzI9/QV33WeuvVYBUIiD4NzNIyqaRQ==
 
-gaxios@^5.0.0:
-  version "5.1.3"
-  resolved "https://registry.npmjs.org/gaxios/-/gaxios-5.1.3.tgz"
-  integrity sha512-95hVgBRgEIRQQQHIbnxBXeHbW4TqFk4ZDJW7wmVtvYar72FdhRIo1UGOLS2eRAKCPEdPBWu+M7+A33D9CdX9rA==
-  dependencies:
-    extend "^3.0.2"
-    https-proxy-agent "^5.0.0"
-    is-stream "^2.0.0"
-    node-fetch "^2.6.9"
-
 gaxios@^6.0.0, gaxios@^6.0.2, gaxios@^6.0.3, gaxios@^6.1.1:
   version "6.7.0"
   resolved "https://registry.npmjs.org/gaxios/-/gaxios-6.7.0.tgz"
@@ -1615,14 +1620,6 @@ gaxios@^6.0.0, gaxios@^6.0.2, gaxios@^6.0.3, gaxios@^6.1.1:
     is-stream "^2.0.0"
     node-fetch "^2.6.9"
     uuid "^10.0.0"
-
-gcp-metadata@^5.2.0:
-  version "5.3.0"
-  resolved "https://registry.npmjs.org/gcp-metadata/-/gcp-metadata-5.3.0.tgz"
-  integrity sha512-FNTkdNEnBdlqF2oatizolQqNANMrcqJt6AAYt99B3y1aLLC8Hc5IOBb+ZnnzllodEEf6xMBp6wRcBbc16fa65w==
-  dependencies:
-    gaxios "^5.0.0"
-    json-bigint "^1.0.0"
 
 gcp-metadata@^6.1.0:
   version "6.1.0"
@@ -3353,6 +3350,11 @@ typescript@^5.5.3, typescript@>=2.7, typescript@>=4.8.4, "typescript@>=4.8.4 <6.
   version "5.5.3"
   resolved "https://registry.npmjs.org/typescript/-/typescript-5.5.3.tgz"
   integrity sha512-/hreyEujaB0w76zKo6717l3L0o/qEUtRgdvUBvlkhoWeOVMjMuHNHk0BRBzikzuGDqNmPQbg5ifMEqsHLiIUcQ==
+
+tz-lookup@^6.1.25:
+  version "6.1.25"
+  resolved "https://registry.npmjs.org/tz-lookup/-/tz-lookup-6.1.25.tgz"
+  integrity sha512-fFewT9o1uDzsW1QnUU1ValqaihFnwiUiiHr1S79/fxOzKXYYvX+EHeRnpvQJ9B3Qg67wPXT6QF2Esc4pFOrvLg==
 
 unbox-primitive@^1.1.0:
   version "1.1.0"

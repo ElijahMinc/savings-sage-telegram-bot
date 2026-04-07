@@ -20,7 +20,6 @@ import {
   getReminderHistoryCutoff,
   getReminderMonthMetrics,
   getReminderMonthRange,
-  isTimezoneAwareReminderSchedule,
   resolveReminderTimezone,
 } from "@/helpers/reminderSchedule.helper";
 
@@ -113,9 +112,10 @@ class ExpenseReminderWorker {
     timezone?: string | null,
   ) {
     const historyCutoff = getReminderHistoryCutoff(baseDate, timezone);
-    const earliestKnownTransaction = [...expenses, ...income].reduce<
-      Date | null
-    >((earliest, item) => {
+    const earliestKnownTransaction = [
+      ...expenses,
+      ...income,
+    ].reduce<Date | null>((earliest, item) => {
       const createdAt = new Date(item.created_date);
 
       if (earliest == null || createdAt < earliest) {
@@ -181,8 +181,11 @@ class ExpenseReminderWorker {
     if (realMonthlyBalance < 0) {
       if (!hasEnoughHistory) {
         return (
-          monthlyIncome / getReminderMonthMetrics(input.baseDate, input.timezone).daysInMonth
-        ) * 2;
+          (monthlyIncome /
+            getReminderMonthMetrics(input.baseDate, input.timezone)
+              .daysInMonth) *
+          2
+        );
       }
 
       return (
@@ -225,16 +228,19 @@ class ExpenseReminderWorker {
     return `Daily reminder: ${getFixedAmount(input.total)} EUR spent today (${input.transactionCount} transactions).`;
   }
 
-  private async sendDailyReminder(bot: Telegraf<IBotContext>, input: {
-    chatId: number;
-    expenses: IAmountData[];
-    income: IAmountData[];
-    monthlySavingsGoal: number | null;
-    total: number;
-    transactionCount: number;
-    baseDate: Date;
-    timezone?: string | null;
-  }) {
+  private async sendDailyReminder(
+    bot: Telegraf<IBotContext>,
+    input: {
+      chatId: number;
+      expenses: IAmountData[];
+      income: IAmountData[];
+      monthlySavingsGoal: number | null;
+      total: number;
+      transactionCount: number;
+      baseDate: Date;
+      timezone?: string | null;
+    },
+  ) {
     const monthlyExpenses = this.getCurrentMonthTotal(
       input.expenses,
       input.baseDate,
@@ -297,7 +303,8 @@ class ExpenseReminderWorker {
   }
 
   private async reconcilePendingTimezoneSensitiveJobs() {
-    const jobs = await expenseReminderJobService.getPendingTimezoneSensitiveJobs();
+    const jobs =
+      await expenseReminderJobService.getPendingTimezoneSensitiveJobs();
 
     if (!jobs.length) {
       return;
@@ -318,14 +325,9 @@ class ExpenseReminderWorker {
         timezoneByKey.set(job.key, sessionTimezone);
       }
 
-      if (job.timezone === sessionTimezone) {
-        continue;
-      }
-
       const nextRunAt = this.getNextRunAt(job, sessionTimezone);
       await expenseReminderJobService.syncPendingJobSchedule(job._id, {
         runAt: nextRunAt,
-        timezone: sessionTimezone,
       });
     }
   }
@@ -354,11 +356,7 @@ class ExpenseReminderWorker {
             transactionService.getIncomeByKey(job.key),
             sessionsService.getSessionDataByKey(job.key),
           ]);
-          const timezone = resolveReminderTimezone(
-            isTimezoneAwareReminderSchedule(job.scheduleType)
-              ? sessionData?.timezone
-              : job.timezone,
-          );
+          const timezone = resolveReminderTimezone(sessionData?.timezone);
           const monthlySavingsGoal =
             getDecryptedNumber(sessionData?.monthlySavingsGoal) ?? null;
           const scopedExpenses = this.getScopedExpenses(

@@ -19,7 +19,6 @@ export interface IExpenseReminderJob {
   scheduleType: ExpenseReminderScheduleType;
   attempts: number;
   maxAttempts: number;
-  timezone?: string;
   createdAt: Date;
   updatedAt: Date;
   lockedAt?: Date;
@@ -41,7 +40,8 @@ class ExpenseReminderJobService {
     if (!this.indexInitPromise) {
       this.indexInitPromise = (async () => {
         try {
-          let existingIndexes: Awaited<ReturnType<typeof this.jobs.indexes>> = [];
+          let existingIndexes: Awaited<ReturnType<typeof this.jobs.indexes>> =
+            [];
 
           try {
             existingIndexes = await this.jobs.indexes();
@@ -96,7 +96,6 @@ class ExpenseReminderJobService {
     maxAttempts?: number;
     scheduleType: ExpenseReminderScheduleType;
     runAt: Date;
-    timezone?: string;
   }) {
     await this.ensureIndexes();
 
@@ -115,7 +114,6 @@ class ExpenseReminderJobService {
           runAt: input.runAt,
           scheduleType: input.scheduleType,
           attempts: 0,
-          ...(input.timezone ? { timezone: input.timezone } : {}),
           updatedAt: now,
         },
         $setOnInsert: {
@@ -123,6 +121,9 @@ class ExpenseReminderJobService {
           type: "expenses_total",
           maxAttempts: input.maxAttempts ?? 5,
           createdAt: now,
+        },
+        $unset: {
+          timezone: "",
         },
       },
       { upsert: true },
@@ -163,7 +164,7 @@ class ExpenseReminderJobService {
           attempts: 0,
           updatedAt: new Date(),
         },
-        $unset: { lockedAt: "", lastError: "" },
+        $unset: { lockedAt: "", lastError: "", timezone: "" },
       },
     );
   }
@@ -172,7 +173,6 @@ class ExpenseReminderJobService {
     jobId: ObjectId,
     input: {
       runAt: Date;
-      timezone?: string;
     },
   ) {
     await this.jobs.updateOne(
@@ -180,8 +180,10 @@ class ExpenseReminderJobService {
       {
         $set: {
           runAt: input.runAt,
-          ...(input.timezone ? { timezone: input.timezone } : {}),
           updatedAt: new Date(),
+        },
+        $unset: {
+          timezone: "",
         },
       },
     );
@@ -196,7 +198,7 @@ class ExpenseReminderJobService {
           updatedAt: new Date(),
           lastError,
         },
-        $unset: { lockedAt: "" },
+        $unset: { lockedAt: "", timezone: "" },
       },
     );
   }
@@ -224,7 +226,7 @@ class ExpenseReminderJobService {
           updatedAt: new Date(),
           lastError,
         },
-        $unset: { lockedAt: "" },
+        $unset: { lockedAt: "", timezone: "" },
       },
     );
   }

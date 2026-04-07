@@ -1,4 +1,5 @@
 import { Telegraf, Markup } from "telegraf";
+import { message } from "telegraf/filters";
 import { IBotContext } from "@context/context.interface";
 import { Command } from "./command.class";
 import { COMMAND_NAMES } from "@/constants";
@@ -10,29 +11,37 @@ import {
 import {
   formatReminderRunAt,
   getNextReminderRunAt,
+  isTimezoneAwareReminderSchedule,
+  isValidReminderTimezone,
   resolveReminderTimezone,
 } from "@/helpers/reminderSchedule.helper";
+import { getTimezoneFromCoordinates } from "@/helpers/timezoneFromCoordinates.helper";
 
 const MIN_SCHEDULE_AHEAD_MS = 30_000;
 const CALLBACK_PREFIX = "remind_preset:";
 const CALLBACK_DISABLE_PREFIX = "remind_disable:";
 const CALLBACK_DISABLE_ALL = "remind_disable_all";
 const KEYBOARD_PRESETS: ReminderPreset[] = ["minute", "day_end", "month_end"];
+const TIMEZONE_WARNING_MESSAGE =
+  "Reminder time may become incorrect after daylight saving or timezone changes. You will need to update it manually.";
+const DISABLE_TIMEZONE_SYNC_TEXT = "Disable timezone sync";
 
 type ReminderPreset = "minute" | "hour" | "day_end" | "month_end";
 
-const PRESET_TO_SCHEDULE: Record<ReminderPreset, ExpenseReminderScheduleType> = {
-  minute: "every_minute",
-  hour: "every_hour",
-  day_end: "end_of_day",
-  month_end: "end_of_month",
-};
-const SCHEDULE_TO_PRESET: Record<ExpenseReminderScheduleType, ReminderPreset> = {
-  every_minute: "minute",
-  every_hour: "hour",
-  end_of_day: "day_end",
-  end_of_month: "month_end",
-};
+const PRESET_TO_SCHEDULE: Record<ReminderPreset, ExpenseReminderScheduleType> =
+  {
+    minute: "every_minute",
+    hour: "every_hour",
+    day_end: "end_of_day",
+    month_end: "end_of_month",
+  };
+const SCHEDULE_TO_PRESET: Record<ExpenseReminderScheduleType, ReminderPreset> =
+  {
+    every_minute: "minute",
+    every_hour: "hour",
+    end_of_day: "day_end",
+    end_of_month: "month_end",
+  };
 
 const PRESET_ALIASES: Record<string, ReminderPreset> = {
   minute: "minute",
@@ -122,26 +131,39 @@ const getPresetByInput = (rawInput: string): ReminderPreset | null => {
   return PRESET_ALIASES[normalized] ?? null;
 };
 
-const reminderMenuText = `Choose reminder schedule:
-- every minute
-- end of day
-- end of month
-
-Tap the same preset again to disable it.
-
-Examples:
-/remind day_end
-/remind month_end
-/remind disable day_end
-/remind disable`;
+const reminderMenuText = "Choose reminder schedule:";
 
 export class ReminderCommand extends Command {
   constructor(public bot: Telegraf<IBotContext>) {
     super(bot);
   }
 
+  private getOptionalReminderTimezone(ctx: IBotContext) {
+    const timezone = ctx.session.timezone;
+
+    if (typeof timezone !== "string") {
+      return undefined;
+    }
+
+    const normalizedTimezone = timezone.trim();
+
+    if (!isValidReminderTimezone(normalizedTimezone)) {
+      return undefined;
+    }
+
+    return normalizedTimezone;
+  }
+
+  private getTimezoneNote(ctx: IBotContext) {
+    const timezone = this.getOptionalReminderTimezone(ctx);
+    return timezone
+      ? `Location sets local time ${timezone}.`
+      : "Local time works only after location sync. Otherwise UTC is used.";
+  }
+
   private async buildReminderKeyboard(key: string) {
-    const reminders = await expenseReminderJobService.getExpensesTotalJobsByKey(key);
+    const reminders =
+      await expenseReminderJobService.getExpensesTotalJobsByKey(key);
     const activePresets = new Set(
       reminders.map((reminder) => SCHEDULE_TO_PRESET[reminder.scheduleType]),
     );
@@ -166,6 +188,7 @@ export class ReminderCommand extends Command {
   private async showReminderMenu(ctx: IBotContext, key: string) {
     const reminderKeyboard = await this.buildReminderKeyboard(key);
     await ctx.reply(reminderMenuText, reminderKeyboard);
+    await ctx.reply(this.getTimezoneNote(ctx));
   }
 
   private async getSessionKey(ctx: IBotContext) {
@@ -181,7 +204,8 @@ export class ReminderCommand extends Command {
 
   private async showConfiguredReminders(ctx: IBotContext, key: string) {
     const timezone = resolveReminderTimezone(ctx.session.timezone);
-    const reminders = await expenseReminderJobService.getExpensesTotalJobsByKey(key);
+    const reminders =
+      await expenseReminderJobService.getExpensesTotalJobsByKey(key);
 
     if (!reminders.length) {
       await ctx.reply("No active reminders yet.");
@@ -189,9 +213,18 @@ export class ReminderCommand extends Command {
     }
 
     const reminderLines = reminders.map((reminder) => {
+      const displayRunAt = isTimezoneAwareReminderSchedule(
+        reminder.scheduleType,
+      )
+        ? getNextReminderRunAt({
+            scheduleType: reminder.scheduleType,
+            timezone,
+          })
+        : reminder.runAt;
+
       return `- ${toReminderLabel(reminder.scheduleType)}. Next run at ${formatReminderRunAt(
-        reminder.runAt,
-        reminder.timezone ?? timezone,
+        displayRunAt,
+        timezone,
       )}`;
     });
 
@@ -208,7 +241,7 @@ export class ReminderCommand extends Command {
     }
 
     const scheduleType = PRESET_TO_SCHEDULE[preset];
-    const timezone = resolveReminderTimezone(ctx.session.timezone);
+    const timezone = this.getOptionalReminderTimezone(ctx);
     const runAt = getRunAtByPreset(preset, timezone);
 
     if (runAt.getTime() - Date.now() < MIN_SCHEDULE_AHEAD_MS) {
@@ -222,16 +255,25 @@ export class ReminderCommand extends Command {
       userId,
       scheduleType,
       runAt,
-      timezone,
     });
 
     const actionText = result.created ? "created" : "updated";
-    await ctx.reply(
-      `Reminder ${actionText}. Next run at ${formatReminderRunAt(
-        runAt,
-        timezone,
-      )}. Schedule: ${toScheduleDescription(preset)} (${timezone}).`,
-    );
+    if (!timezone) {
+      await ctx.reply(
+        "Saved. Current reminder time uses UTC.\nSend location if you want local time.",
+      );
+    } else {
+      await ctx.reply(
+        `Reminder ${actionText}. Next run at ${formatReminderRunAt(
+          runAt,
+          timezone,
+        )}. Schedule: ${toScheduleDescription(preset)} (${timezone}).`,
+      );
+    }
+
+    if (!timezone && isTimezoneAwareReminderSchedule(scheduleType)) {
+      await ctx.reply(TIMEZONE_WARNING_MESSAGE);
+    }
 
     await this.showConfiguredReminders(ctx, key);
     await this.showReminderMenu(ctx, key);
@@ -244,9 +286,8 @@ export class ReminderCommand extends Command {
       return;
     }
 
-    const disabled = await expenseReminderJobService.disableExpensesTotalJobByKey(
-      key,
-    );
+    const disabled =
+      await expenseReminderJobService.disableExpensesTotalJobByKey(key);
 
     await ctx.reply(
       disabled
@@ -257,7 +298,10 @@ export class ReminderCommand extends Command {
     await this.showReminderMenu(ctx, key);
   }
 
-  private async disableReminderByPreset(ctx: IBotContext, preset: ReminderPreset) {
+  private async disableReminderByPreset(
+    ctx: IBotContext,
+    preset: ReminderPreset,
+  ) {
     const key = await this.getSessionKey(ctx);
 
     if (!key) {
@@ -344,6 +388,46 @@ export class ReminderCommand extends Command {
       }
 
       await this.showReminderMenu(ctx, key);
+    });
+
+    this.bot.on(message("location"), async (ctx) => {
+      const timezone = getTimezoneFromCoordinates(
+        ctx.message.location.latitude,
+        ctx.message.location.longitude,
+      );
+
+      if (!timezone) {
+        await ctx.reply("Could not detect timezone for local time sync.");
+        return;
+      }
+
+      ctx.session.timezone = timezone;
+      const key = await this.getSessionKey(ctx);
+
+      await ctx.reply(
+        `Location sets local time ${timezone}.`,
+        Markup.removeKeyboard(),
+      );
+
+      if (key) {
+        await this.showConfiguredReminders(ctx, key);
+        await this.showReminderMenu(ctx, key);
+      }
+    });
+
+    this.bot.hears(DISABLE_TIMEZONE_SYNC_TEXT, async (ctx) => {
+      ctx.session.timezone = undefined;
+      const key = await this.getSessionKey(ctx);
+
+      await ctx.reply(
+        "Using UTC. Send location to use local time.",
+        Markup.removeKeyboard(),
+      );
+
+      if (key) {
+        await this.showConfiguredReminders(ctx, key);
+        await this.showReminderMenu(ctx, key);
+      }
     });
 
     this.bot.action(
