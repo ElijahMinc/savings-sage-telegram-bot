@@ -310,10 +310,17 @@ class ExpenseReminderWorker {
       return;
     }
 
+    const now = new Date();
     const timezoneByKey = new Map<string, string>();
 
     for (const job of jobs) {
       if (!job._id) {
+        continue;
+      }
+
+      // Keep due jobs claimable for the current tick instead of rolling them
+      // forward to the next day/month before execution.
+      if (job.runAt <= now) {
         continue;
       }
 
@@ -326,6 +333,11 @@ class ExpenseReminderWorker {
       }
 
       const nextRunAt = this.getNextRunAt(job, sessionTimezone);
+
+      if (nextRunAt.getTime() === job.runAt.getTime()) {
+        continue;
+      }
+
       await expenseReminderJobService.syncPendingJobSchedule(job._id, {
         runAt: nextRunAt,
       });
