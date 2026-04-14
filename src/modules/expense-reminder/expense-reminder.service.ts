@@ -2,8 +2,10 @@ import {
   getNextReminderRunAt,
   getReminderDayRange,
   getReminderHistoryCutoff,
+  getReminderHourRange,
   getReminderMonthMetrics,
   getReminderMonthRange,
+  getReminderMinuteRange,
   resolveReminderTimezone,
 } from "@/helpers/reminderSchedule.helper";
 import { expenseReminderRepository } from "./expense-reminder.repository";
@@ -101,18 +103,30 @@ class ExpenseReminderService {
     baseDate: Date,
     timezone?: string | null,
   ) {
-    switch (scheduleType) {
-      case "end_of_day": {
-        const dayRange = getReminderDayRange(baseDate, timezone);
+    let range: { start: Date; end: Date } | null = null;
 
-        return expenses.filter((expense) => {
-          const createdAt = new Date(expense.created_date);
-          return createdAt >= dayRange.start && createdAt <= dayRange.end;
-        });
+    switch (scheduleType) {
+      case "every_minute":
+        range = getReminderMinuteRange(baseDate, timezone);
+        break;
+      case "every_hour":
+        range = getReminderHourRange(baseDate, timezone);
+        break;
+      case "end_of_day": {
+        range = getReminderDayRange(baseDate, timezone);
+        break;
       }
+      case "end_of_month":
+        range = getReminderMonthRange(baseDate, timezone);
+        break;
       default:
         return expenses;
     }
+
+    return expenses.filter((expense) => {
+      const createdAt = new Date(expense.created_date);
+      return createdAt >= range.start && createdAt <= range.end;
+    });
   }
 
   private getCurrentMonthTotal(
@@ -258,6 +272,34 @@ class ExpenseReminderService {
     );
   }
 
+  private getReminderEmptyStateMessage(
+    scheduleType: ExpenseReminderScheduleType,
+  ) {
+    switch (scheduleType) {
+      case "every_minute":
+        return (
+          "No transactions recorded this minute.\n" +
+          "Nothing to report yet — your minute summary was skipped."
+        );
+      case "every_hour":
+        return (
+          "No transactions recorded this hour.\n" +
+          "Nothing to report yet — your hourly summary was skipped."
+        );
+      case "end_of_month":
+        return (
+          "No transactions recorded this month.\n" +
+          "Nothing to report yet — your monthly summary was skipped."
+        );
+      case "end_of_day":
+      default:
+        return (
+          "No transactions recorded today.\n" +
+          "Nothing to report yet — your daily summary was skipped."
+        );
+    }
+  }
+
   private getDailyReminderSummary(input: {
     total: number;
     transactionCount: number;
@@ -276,6 +318,31 @@ class ExpenseReminderService {
     }
 
     return `Daily reminder: ${getFixedAmount(input.total)} EUR spent today (${input.transactionCount} transactions).`;
+  }
+
+  private getReminderSummary(input: {
+    scheduleType: ExpenseReminderScheduleType;
+    total: number;
+    transactionCount: number;
+    monthlyIncome?: number;
+    monthlyExpenses?: number;
+  }) {
+    switch (input.scheduleType) {
+      case "every_minute":
+        return `Minute reminder: ${getFixedAmount(input.total)} EUR spent this minute (${input.transactionCount} transactions).`;
+      case "every_hour":
+        return `Hourly reminder: ${getFixedAmount(input.total)} EUR spent this hour (${input.transactionCount} transactions).`;
+      case "end_of_month":
+        return `Monthly reminder: ${getFixedAmount(input.total)} EUR spent this month (${input.transactionCount} transactions).`;
+      case "end_of_day":
+      default:
+        return this.getDailyReminderSummary({
+          total: input.total,
+          transactionCount: input.transactionCount,
+          monthlyIncome: input.monthlyIncome ?? 0,
+          monthlyExpenses: input.monthlyExpenses ?? 0,
+        });
+    }
   }
 
   private async sendDailyReminder(
@@ -311,7 +378,8 @@ class ExpenseReminderService {
     const shouldAttachReport =
       input.transactionCount >= 10 || input.total >= threshold;
 
-    const summary = this.getDailyReminderSummary({
+    const summary = this.getReminderSummary({
+      scheduleType: "end_of_day",
       total: input.total,
       transactionCount: input.transactionCount,
       monthlyIncome,
@@ -371,6 +439,15 @@ class ExpenseReminderService {
       0,
     );
 
+    if (scopedExpenses.length === 0) {
+      await sender.sendMessage(
+        job.chatId,
+        this.getReminderEmptyStateMessage(job.scheduleType),
+      );
+
+      return this.getNextRunAt(job, timezone, now);
+    }
+
     if (job.scheduleType === "end_of_day") {
       await this.sendDailyReminder(sender, {
         chatId: job.chatId,
@@ -382,24 +459,33 @@ class ExpenseReminderService {
         baseDate: now,
         timezone,
       });
-    } else {
-      if (expenses.length || income.length) {
-        const { filename, readStream } =
-          xlmxService.getMonthlyAnalyticsReadStream(
-            expenses,
-            income,
-            monthlySavingsGoal ?? undefined,
-          );
+    } else if (job.scheduleType === "end_of_month") {
+      const { filename, readStream } = xlmxService.getMonthlyAnalyticsReadStream(
+        expenses,
+        income,
+        monthlySavingsGoal ?? undefined,
+      );
 
-        await sender.sendDocument(job.chatId, {
+      await sender.sendDocument(
+        job.chatId,
+        {
           source: readStream,
           filename,
-        });
-      }
-
+        },
+        this.getReminderSummary({
+          scheduleType: job.scheduleType,
+          total,
+          transactionCount: scopedExpenses.length,
+        }),
+      );
+    } else {
       await sender.sendMessage(
         job.chatId,
-        `Reminder: total expenses now are ${getFixedAmount(total)} EUR (${scopedExpenses.length} transactions).`,
+        this.getReminderSummary({
+          scheduleType: job.scheduleType,
+          total,
+          transactionCount: scopedExpenses.length,
+        }),
       );
     }
 

@@ -93,6 +93,27 @@ export const formatReminderRunAt = (date: Date, timezone?: string | null) => {
   return moment(date).tz(resolvedTimezone).format("YYYY-MM-DD HH:mm z");
 };
 
+export const getReminderMinuteRange = (
+  date: Date,
+  timezone?: string | null,
+) => {
+  const zonedDate = moment.tz(date, resolveReminderTimezone(timezone));
+
+  return {
+    start: zonedDate.clone().startOf("minute").toDate(),
+    end: zonedDate.clone().endOf("minute").toDate(),
+  };
+};
+
+export const getReminderHourRange = (date: Date, timezone?: string | null) => {
+  const zonedDate = moment.tz(date, resolveReminderTimezone(timezone));
+
+  return {
+    start: zonedDate.clone().startOf("hour").toDate(),
+    end: zonedDate.clone().endOf("hour").toDate(),
+  };
+};
+
 export const getReminderDayRange = (date: Date, timezone?: string | null) => {
   const zonedDate = moment.tz(date, resolveReminderTimezone(timezone));
 
