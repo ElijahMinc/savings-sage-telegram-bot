@@ -1,9 +1,9 @@
 import { Telegraf } from "telegraf";
-import { IBotContext, IAmountData } from "@context/context.interface";
+import { IBotContext, IAmountData } from "@/types/app-context.interface";
 import { Command } from "./command.class";
 import { COMMAND_NAMES } from "@/constants";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
-import { transactionService } from "@/services/TransactionService";
+import { transactionService } from "@/modules/transaction";
 import { decrypt } from "@/helpers/decrypt";
 import { IEncryptedData } from "@/helpers/encrypt";
 import { getFixedAmount } from "@/helpers/getFixedAmount";
@@ -112,9 +112,7 @@ Month balance (with savings goal): ${monthBalanceWithSavingsGoalLine}
 
 Savings goal: ${savingsGoalLine}`;
 
-      await ctx.reply(
-        message,
-      );
+      await ctx.reply(message);
     });
   }
 }

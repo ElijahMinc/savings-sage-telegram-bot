@@ -1,32 +1,13 @@
 import { mongoDbClient } from "@/db/connection";
-import { MongoServerError, ObjectId } from "mongodb";
+import {
+  ExpenseReminderScheduleType,
+  IExpenseReminderJob,
+} from "@/db/schema/reminder-job.schema";
+import { ObjectId, MongoServerError } from "mongodb";
 
-export type ExpenseReminderStatus = "pending" | "processing" | "failed";
-export type ExpenseReminderScheduleType =
-  | "every_minute"
-  | "every_hour"
-  | "end_of_day"
-  | "end_of_month";
-
-export interface IExpenseReminderJob {
-  _id?: ObjectId;
-  key: string;
-  chatId: number;
-  userId: number;
-  type: "expenses_total";
-  status: ExpenseReminderStatus;
-  runAt: Date;
-  scheduleType: ExpenseReminderScheduleType;
-  attempts: number;
-  maxAttempts: number;
-  createdAt: Date;
-  updatedAt: Date;
-  lockedAt?: Date;
-  lastError?: string;
-}
-
-class ExpenseReminderJobService {
+export class ExpenseReminderRepository {
   private jobs = mongoDbClient.collection<IExpenseReminderJob>("reminder_jobs");
+
   private indexInitPromise: Promise<string[]> | null = null;
 
   private isNamespaceNotFoundError(error: unknown) {
@@ -36,7 +17,7 @@ class ExpenseReminderJobService {
     );
   }
 
-  private async ensureIndexes() {
+  async ensureIndexes() {
     if (!this.indexInitPromise) {
       this.indexInitPromise = (async () => {
         try {
@@ -97,9 +78,8 @@ class ExpenseReminderJobService {
     scheduleType: ExpenseReminderScheduleType;
     runAt: Date;
   }) {
-    await this.ensureIndexes();
-
     const now = new Date();
+
     const result = await this.jobs.updateOne(
       {
         key: input.key,
@@ -136,9 +116,7 @@ class ExpenseReminderJobService {
   }
 
   async claimNextDueJob(now: Date) {
-    await this.ensureIndexes();
-
-    const claimed = await this.jobs.findOneAndUpdate(
+    return this.jobs.findOneAndUpdate(
       { status: "pending", runAt: { $lte: now } },
       {
         $set: {
@@ -150,8 +128,6 @@ class ExpenseReminderJobService {
       },
       { sort: { runAt: 1 }, returnDocument: "after" },
     );
-
-    return claimed;
   }
 
   async markExecutedAndRescheduled(jobId: ObjectId, nextRunAt: Date) {
@@ -203,28 +179,21 @@ class ExpenseReminderJobService {
     );
   }
 
-  async releaseForRetry(
-    job: Pick<IExpenseReminderJob, "_id" | "attempts" | "maxAttempts">,
-    retryInMs: number,
-    lastError: string,
+  async rescheduleProcessingJob(
+    jobId: ObjectId,
+    input: {
+      runAt: Date;
+      lastError: string;
+    },
   ) {
-    if (!job._id) {
-      return;
-    }
-
-    if (job.attempts >= job.maxAttempts) {
-      await this.markFailed(job._id, lastError);
-      return;
-    }
-
     await this.jobs.updateOne(
-      { _id: job._id, status: "processing" },
+      { _id: jobId, status: "processing" },
       {
         $set: {
           status: "pending",
-          runAt: new Date(Date.now() + retryInMs),
+          runAt: input.runAt,
           updatedAt: new Date(),
-          lastError,
+          lastError: input.lastError,
         },
         $unset: { lockedAt: "", timezone: "" },
       },
@@ -232,7 +201,11 @@ class ExpenseReminderJobService {
   }
 
   async disableExpensesTotalJobByKey(key: string) {
-    const result = await this.jobs.deleteMany({ key, type: "expenses_total" });
+    const result = await this.jobs.deleteMany({
+      key,
+      type: "expenses_total",
+    });
+
     return result.deletedCount > 0;
   }
 
@@ -250,17 +223,17 @@ class ExpenseReminderJobService {
   }
 
   async getExpensesTotalJobsByKey(key: string) {
-    await this.ensureIndexes();
-
     return this.jobs
-      .find({ key, type: "expenses_total", status: { $ne: "failed" } })
+      .find({
+        key,
+        type: "expenses_total",
+        status: { $ne: "failed" },
+      })
       .sort({ runAt: 1 })
       .toArray();
   }
 
   async getPendingTimezoneSensitiveJobs() {
-    await this.ensureIndexes();
-
     return this.jobs
       .find({
         type: "expenses_total",
@@ -276,4 +249,4 @@ class ExpenseReminderJobService {
   }
 }
 
-export const expenseReminderJobService = new ExpenseReminderJobService();
+export const expenseReminderRepository = new ExpenseReminderRepository();

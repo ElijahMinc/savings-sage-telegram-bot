@@ -1,4 +1,4 @@
-import { IAmountData } from "@/context/context.interface";
+import { IAmountData } from "@/types/app-context.interface";
 import moment from "moment";
 
 export function filterDataForLastMonth<T extends IAmountData>(data: T[]) {
@@ -11,7 +11,7 @@ export function filterDataForLastMonth<T extends IAmountData>(data: T[]) {
 
   return {
     filteredData: data.filter((item) =>
-      moment(item.created_date).isBetween(startDate, endDate, null, "[]")
+      moment(item.created_date).isBetween(startDate, endDate, null, "[]"),
     ),
     startDate: startDate,
     endDate: endDate,

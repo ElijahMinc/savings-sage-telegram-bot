@@ -4,7 +4,7 @@ import {
   ITransactionRecord,
   SceneContexts,
   TransactionType,
-} from "@/context/context.interface";
+} from "@/types/app-context.interface";
 import { decrypt } from "@/helpers/decrypt";
 import { encrypt, IEncryptedData } from "@/helpers/encrypt";
 import {
@@ -15,7 +15,7 @@ import { containsSlash } from "@/helpers/containsHash.helper";
 import { getFixedAmount } from "@/helpers/getFixedAmount";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
 import { Scenario } from "@/scenes/scene.class";
-import { transactionService } from "@/services/TransactionService";
+import { transactionService } from "@/modules/transaction";
 import moment from "moment";
 import { Markup, Scenes } from "telegraf";
 

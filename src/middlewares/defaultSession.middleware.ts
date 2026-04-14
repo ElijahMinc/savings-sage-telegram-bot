@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { IBotContext, SessionData } from "@/context/context.interface";
+import { IBotContext, SessionData } from "@/types/app-context.interface";
 import {
   encryptNumber,
   getDecryptedNumber,
 } from "@/helpers/encryptedNumber.helper";
 import { isValidReminderTimezone } from "@/helpers/reminderSchedule.helper";
 
-const defaultSessionData = (): SessionData => ({
-});
+const defaultSessionData = (): SessionData => ({});
 
 export const defaultSessionMiddleware =
   () => async (ctx: IBotContext, next: () => Promise<void>) => {
@@ -21,11 +20,10 @@ export const defaultSessionMiddleware =
     delete (ctx.session as any).incomeTags;
     delete (ctx.session as any).mode;
 
-    const monthlySavingsGoal = getDecryptedNumber(ctx.session.monthlySavingsGoal);
-    if (
-      ctx.session.monthlySavingsGoal != null &&
-      monthlySavingsGoal == null
-    ) {
+    const monthlySavingsGoal = getDecryptedNumber(
+      ctx.session.monthlySavingsGoal,
+    );
+    if (ctx.session.monthlySavingsGoal != null && monthlySavingsGoal == null) {
       ctx.session.monthlySavingsGoal = undefined;
     } else if (monthlySavingsGoal != null && monthlySavingsGoal <= 0) {
       ctx.session.monthlySavingsGoal = undefined;
@@ -45,10 +43,7 @@ export const defaultSessionMiddleware =
       savingsGoalExtraAmount == null
     ) {
       ctx.session.savingsGoalExtraAmount = undefined;
-    } else if (
-      savingsGoalExtraAmount != null &&
-      savingsGoalExtraAmount < 0
-    ) {
+    } else if (savingsGoalExtraAmount != null && savingsGoalExtraAmount < 0) {
       ctx.session.savingsGoalExtraAmount = undefined;
     } else if (
       typeof ctx.session.savingsGoalExtraAmount === "number" &&

@@ -1,6 +1,6 @@
+import { ExpenseReminderScheduleType } from "@/modules/expense-reminder/expense-reminder.types";
 import { addHours, addMinutes } from "date-fns";
 import moment from "moment-timezone";
-import { ExpenseReminderScheduleType } from "@/services/ExpenseReminderJobService";
 
 export const DEFAULT_REMINDER_TIMEZONE = "UTC";
 
@@ -88,10 +88,7 @@ export const getNextReminderRunAt = (input: {
   }
 };
 
-export const formatReminderRunAt = (
-  date: Date,
-  timezone?: string | null,
-) => {
+export const formatReminderRunAt = (date: Date, timezone?: string | null) => {
   const resolvedTimezone = resolveReminderTimezone(timezone);
   return moment(date).tz(resolvedTimezone).format("YYYY-MM-DD HH:mm z");
 };
@@ -105,10 +102,7 @@ export const getReminderDayRange = (date: Date, timezone?: string | null) => {
   };
 };
 
-export const getReminderMonthRange = (
-  date: Date,
-  timezone?: string | null,
-) => {
+export const getReminderMonthRange = (date: Date, timezone?: string | null) => {
   const zonedDate = moment.tz(date, resolveReminderTimezone(timezone));
 
   return {

@@ -30,8 +30,6 @@ interface TransactionsScene extends Scenes.SceneSessionData {
 export interface IAmountData {
   id: number;
   category: string;
-  // Legacy DB field. Old records may still contain `tag`.
-  tag?: string;
   amount: IEncryptedData | number;
   currency: string;
   created_date: Date;
@@ -62,4 +60,4 @@ export type SceneContexts<Type> = Type extends "ExpenseTransactionScene"
     ? IBotContext & SceneContext<IncomeTransactionScene>
     : Type extends "TransactionsScene"
       ? IBotContext & SceneContext<TransactionsScene>
-    : never;
+      : never;

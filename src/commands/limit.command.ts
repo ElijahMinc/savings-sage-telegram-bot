@@ -1,12 +1,12 @@
 import { Telegraf } from "telegraf";
 import * as emoji from "node-emoji";
-import { IBotContext, IAmountData } from "@context/context.interface";
+import { IBotContext, IAmountData } from "@/types/app-context.interface";
 import { Command } from "./command.class";
 import { COMMAND_NAMES } from "@/constants";
 import { containsStrictNumber } from "@/helpers/containsStrictNumber.helper";
 import { getFixedAmount } from "@/helpers/getFixedAmount";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
-import { transactionService } from "@/services/TransactionService";
+import { transactionService } from "@/modules/transaction";
 import { decrypt } from "@/helpers/decrypt";
 import { IEncryptedData } from "@/helpers/encrypt";
 import { getLimitSnapshot } from "@/helpers/limitSnapshot.helper";
@@ -148,7 +148,3 @@ ${emoji.get("calendar")} Auto daily expense limit: ${getFixedAmount(
     });
   }
 }
-
-
-
-

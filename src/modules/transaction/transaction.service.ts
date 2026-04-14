@@ -2,18 +2,12 @@ import {
   IAmountData,
   ITransactionRecord,
   TransactionType,
-} from "@/context/context.interface";
-import { mongoDbClient } from "@/db/connection";
+} from "@/types/app-context.interface";
+import { transactionRepository } from "./transaction.repository";
+import { ITransactionRecordStored } from "@/db/schema/transaction.schema";
 
-type ITransactionRecordStored = Omit<ITransactionRecord, "category"> & {
-  category?: string;
-  tag?: string;
-};
-
-class TransactionService {
-  private transactions = mongoDbClient.collection<ITransactionRecordStored>(
-    "transactions",
-  );
+export class TransactionService {
+  private readonly repository = transactionRepository;
 
   private normalizeTransaction(
     record: ITransactionRecordStored,
@@ -21,12 +15,9 @@ class TransactionService {
     const category =
       typeof record.category === "string" && record.category.trim().length
         ? record.category
-        : typeof record.tag === "string" && record.tag.trim().length
-          ? record.tag
-          : "Other";
+        : "Other";
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { tag: _legacyTag, ...rest } = record;
+    const { ...rest } = record;
 
     return {
       ...rest,
@@ -35,11 +26,7 @@ class TransactionService {
   }
 
   private async getTransactionsByType(key: string, type: TransactionType) {
-    const items = await this.transactions
-      .find({ key, type })
-      .sort({ created_date: 1 })
-      .toArray();
-
+    const items = await this.repository.getTransactionsByType(key, type);
     return items.map((item) => this.normalizeTransaction(item));
   }
 
@@ -48,9 +35,7 @@ class TransactionService {
     type: TransactionType,
     transaction: IAmountData,
   ) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { tag: _legacyTag, ...payload } = transaction;
-    await this.transactions.insertOne({ ...payload, key, type });
+    await this.repository.addTransaction(key, type, transaction);
   }
 
   private async deleteTransactionById(
@@ -58,8 +43,7 @@ class TransactionService {
     type: TransactionType,
     id: number,
   ) {
-    const { deletedCount } = await this.transactions.deleteOne({ key, type, id });
-    return deletedCount > 0;
+    return await this.repository.deleteTransactionById(key, type, id);
   }
 
   private async updateTransactionById(
@@ -68,16 +52,11 @@ class TransactionService {
     id: number,
     update: Partial<Pick<IAmountData, "amount" | "category">>,
   ) {
-    const { matchedCount } = await this.transactions.updateOne(
-      { key, type, id },
-      { $set: update },
-    );
-
-    return matchedCount > 0;
+    return await this.repository.updateTransactionById(key, type, id, update);
   }
 
   private async clearTransactionsByType(key: string, type: TransactionType) {
-    await this.transactions.deleteMany({ key, type });
+    await this.repository.clearTransactionsByType(key, type);
   }
 
   async getExpensesByKey(key: string) {
@@ -113,16 +92,11 @@ class TransactionService {
   }
 
   async getTransactionsPageByKey(key: string, page: number, pageSize: number) {
-    const skip = Math.max(0, page) * pageSize;
-    const [total, items] = await Promise.all([
-      this.transactions.countDocuments({ key }),
-      this.transactions
-        .find<ITransactionRecordStored>({ key })
-        .sort({ created_date: -1, id: -1 })
-        .skip(skip)
-        .limit(pageSize)
-        .toArray(),
-    ]);
+    const { total, items } = await this.repository.getTransactionsPageByKey(
+      key,
+      page,
+      pageSize,
+    );
 
     return {
       total,

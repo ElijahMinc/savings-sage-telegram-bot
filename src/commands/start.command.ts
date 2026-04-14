@@ -8,13 +8,13 @@ import {
 } from "@/constants";
 import { containsSlash } from "@/helpers/containsHash.helper";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
-import { transactionService } from "@/services/TransactionService";
+import { transactionService } from "@/modules/transaction";
 import {
   CURRENCIES,
   IAmountData,
   TransactionType,
-  IBotContext
-} from "@/context/context.interface";
+  IBotContext,
+} from "@/types/app-context.interface";
 import { encrypt, IEncryptedData } from "@/helpers/encrypt";
 import { decrypt } from "@/helpers/decrypt";
 import * as emoji from "node-emoji";

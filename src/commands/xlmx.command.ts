@@ -1,11 +1,12 @@
 import { Telegraf } from "telegraf";
-import { IBotContext } from "@context/context.interface";
+import { IBotContext } from "@/types/app-context.interface";
 import { Command } from "./command.class";
 import { xlmxService } from "@/services/XLMX.service";
 import { COMMAND_NAMES } from "@/constants";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
-import { transactionService } from "@/services/TransactionService";
+import { transactionService } from "@/modules/transaction";
 import { getDecryptedNumber } from "@/helpers/encryptedNumber.helper";
+
 export class XLMXCommand extends Command {
   constructor(public bot: Telegraf<IBotContext>) {
     super(bot);

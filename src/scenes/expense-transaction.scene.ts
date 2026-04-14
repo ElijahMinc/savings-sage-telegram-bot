@@ -11,7 +11,7 @@ import {
   CURRENCIES,
   IAmountData,
   SceneContexts,
-} from "@/context/context.interface";
+} from "@/types/app-context.interface";
 import moment from "moment";
 import "moment-timezone";
 import { containsSlash } from "@/helpers/containsHash.helper";
@@ -20,7 +20,7 @@ import { decrypt } from "@/helpers/decrypt";
 import * as emoji from "node-emoji";
 import { getFixedAmount } from "@/helpers/getFixedAmount";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
-import { transactionService } from "@/services/TransactionService";
+import { transactionService } from "@/modules/transaction";
 import { getLimitSnapshot } from "@/helpers/limitSnapshot.helper";
 import {
   encryptNumber,
@@ -567,4 +567,3 @@ export class ExpenseTransactionScene extends Scenario {
     );
   }
 }
-
