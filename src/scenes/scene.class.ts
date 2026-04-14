@@ -1,11 +1,13 @@
-import { SceneContexts } from "@/context/context.interface";
+import { SceneContexts } from "@/types/app-context.interface";
 import { Scenes } from "telegraf";
 
 export abstract class Scenario {
   scene:
     | Scenes.BaseScene<
         SceneContexts<
-          "ExpenseTransactionScene" | "IncomeTransactionScene" | "TransactionsScene"
+          | "ExpenseTransactionScene"
+          | "IncomeTransactionScene"
+          | "TransactionsScene"
         >
       >
     | undefined;

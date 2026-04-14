@@ -12,4 +12,6 @@ moduleAlias.addAliases({
   "@context": path.join(rootDir, "context"),
   "@server": path.join(rootDir, "server"),
   "@scenes": path.join(rootDir, "scenes"),
+  "@middlewares": path.join(rootDir, "middlewares"),
+  "@helpers": path.join(rootDir, "helpers"),
 });

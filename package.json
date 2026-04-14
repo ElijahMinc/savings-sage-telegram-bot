@@ -6,9 +6,9 @@
   "scripts": {
     "build": "tsc",
     "lint": "eslint .",
-    "start": "node ./dist/app.js",
-    "dev": "nodemon",
-    "start:build": "tsc && node ./dist/app.js"
+    "start:bot": "node ./dist/apps/bot/index.js",
+    "start:worker": "node ./dist/apps/worker/index.js",
+    "dev": "nodemon"
   },
   "keywords": [],
   "author": "",
@@ -59,6 +59,8 @@
     "@config": "src/config",
     "@context": "src/context",
     "@server": "src/server",
-    "@scenes": "src/scenes"
+    "@scenes": "src/scenes",
+    "@helpers": "src/helpers",
+    "@middlewares": "src/middlewares"
   }
 }

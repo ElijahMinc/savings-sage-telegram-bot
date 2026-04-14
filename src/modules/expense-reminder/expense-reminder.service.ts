@@ -1,19 +1,3 @@
-import { IBotContext, IAmountData } from "@/context/context.interface";
-import { getFixedAmount } from "@/helpers/getFixedAmount";
-import { decrypt } from "@/helpers/decrypt";
-import { IEncryptedData } from "@/helpers/encrypt";
-import {
-  expenseReminderJobService,
-  ExpenseReminderScheduleType,
-  IExpenseReminderJob,
-} from "@/services/ExpenseReminderJobService";
-import { transactionService } from "@/services/TransactionService";
-import { xlmxService } from "@/services/XLMX.service";
-import { sessionsService } from "@/services/SessionService";
-import { getDecryptedNumber } from "@/helpers/encryptedNumber.helper";
-import { getLimitSnapshot } from "@/helpers/limitSnapshot.helper";
-import { Telegraf } from "telegraf";
-import cron, { ScheduledTask } from "node-cron";
 import {
   getNextReminderRunAt,
   getReminderDayRange,
@@ -22,20 +6,84 @@ import {
   getReminderMonthRange,
   resolveReminderTimezone,
 } from "@/helpers/reminderSchedule.helper";
+import { expenseReminderRepository } from "./expense-reminder.repository";
+import { getFixedAmount } from "@/helpers/getFixedAmount";
+import { decrypt } from "@/helpers/decrypt";
+import { IAmountData } from "@/types/app-context.interface";
+import { IEncryptedData } from "@/helpers/encrypt";
+import { getLimitSnapshot } from "@/helpers/limitSnapshot.helper";
+import { transactionService } from "@/modules/transaction";
+import { sessionsService } from "@/services/SessionService";
+import { getDecryptedNumber } from "@/helpers/encryptedNumber.helper";
+import { xlmxService } from "@/services/XLMX.service";
+import { ObjectId } from "mongodb";
+import { IMessageSender } from "@/types/reminder-sender.interface";
+import {
+  ExpenseReminderScheduleType,
+  IExpenseReminderJob,
+} from "@/db/schema/reminder-job.schema";
 
-class ExpenseReminderWorker {
-  private task: ScheduledTask | null = null;
-  private isTicking = false;
+class ExpenseReminderService {
+  private readonly repository = expenseReminderRepository;
 
-  start(bot: Telegraf<IBotContext>) {
-    if (this.task) {
+  async upsertExpensesTotalJob(input: {
+    key: string;
+    chatId: number;
+    userId: number;
+    maxAttempts?: number;
+    scheduleType: ExpenseReminderScheduleType;
+    runAt: Date;
+  }) {
+    return this.repository.upsertExpensesTotalJob(input);
+  }
+
+  async disableExpensesTotalJobByKey(key: string) {
+    return this.repository.disableExpensesTotalJobByKey(key);
+  }
+
+  async disableExpensesTotalJobByScheduleType(
+    key: string,
+    scheduleType: ExpenseReminderScheduleType,
+  ) {
+    return this.repository.disableExpensesTotalJobByScheduleType(
+      key,
+      scheduleType,
+    );
+  }
+
+  async getExpensesTotalJobsByKey(key: string) {
+    return this.repository.getExpensesTotalJobsByKey(key);
+  }
+
+  async releaseForRetry(
+    job: Pick<IExpenseReminderJob, "_id" | "attempts" | "maxAttempts">,
+    retryInMs: number,
+    lastError: string,
+  ) {
+    if (!job._id) {
       return;
     }
 
-    void this.tick(bot);
+    if (job.attempts >= job.maxAttempts) {
+      await this.repository.markFailed(job._id, lastError);
+      return;
+    }
 
-    this.task = cron.schedule("* * * * *", async () => {
-      await this.tick(bot);
+    await this.repository.rescheduleProcessingJob(job._id, {
+      runAt: new Date(Date.now() + retryInMs),
+      lastError,
+    });
+  }
+
+  getNextRunAt(
+    job: IExpenseReminderJob,
+    timezone?: string | null,
+    baseDate?: Date,
+  ) {
+    return getNextReminderRunAt({
+      scheduleType: job.scheduleType,
+      baseDate,
+      timezone,
     });
   }
 
@@ -112,6 +160,7 @@ class ExpenseReminderWorker {
     timezone?: string | null,
   ) {
     const historyCutoff = getReminderHistoryCutoff(baseDate, timezone);
+
     const earliestKnownTransaction = [
       ...expenses,
       ...income,
@@ -142,6 +191,7 @@ class ExpenseReminderWorker {
       input.baseDate,
       input.timezone,
     );
+
     const snapshot = getLimitSnapshot({
       monthlyIncome: input.monthlyIncome,
       monthlyExpenses: input.monthlyExpenses,
@@ -229,7 +279,7 @@ class ExpenseReminderWorker {
   }
 
   private async sendDailyReminder(
-    bot: Telegraf<IBotContext>,
+    sender: IMessageSender,
     input: {
       chatId: number;
       expenses: IAmountData[];
@@ -260,6 +310,7 @@ class ExpenseReminderWorker {
     });
     const shouldAttachReport =
       input.transactionCount >= 10 || input.total >= threshold;
+
     const summary = this.getDailyReminderSummary({
       total: input.total,
       transactionCount: input.transactionCount,
@@ -268,7 +319,7 @@ class ExpenseReminderWorker {
     });
 
     if (!shouldAttachReport) {
-      await bot.telegram.sendMessage(input.chatId, summary);
+      await sender.sendMessage(input.chatId, summary);
       return;
     }
 
@@ -278,166 +329,100 @@ class ExpenseReminderWorker {
       input.monthlySavingsGoal ?? undefined,
     );
 
-    await bot.telegram.sendDocument(
+    await sender.sendDocument(
       input.chatId,
       {
         source: readStream,
         filename,
       },
-      {
-        caption: summary,
-      },
+      summary,
     );
   }
 
-  private getNextRunAt(
+  async executeJob(
+    sender: IMessageSender,
     job: IExpenseReminderJob,
-    timezone?: string | null,
-    baseDate?: Date,
-  ) {
-    return getNextReminderRunAt({
-      scheduleType: job.scheduleType,
-      baseDate,
-      timezone,
-    });
-  }
-
-  private async reconcilePendingTimezoneSensitiveJobs() {
-    const jobs =
-      await expenseReminderJobService.getPendingTimezoneSensitiveJobs();
-
-    if (!jobs.length) {
-      return;
+  ): Promise<Date> {
+    if (!job._id) {
+      throw new Error("Job id is required");
     }
 
     const now = new Date();
-    const timezoneByKey = new Map<string, string>();
 
-    for (const job of jobs) {
-      if (!job._id) {
-        continue;
-      }
+    const [expenses, income, sessionData] = await Promise.all([
+      transactionService.getExpensesByKey(job.key),
+      transactionService.getIncomeByKey(job.key),
+      sessionsService.getSessionDataByKey(job.key),
+    ]);
 
-      // Keep due jobs claimable for the current tick instead of rolling them
-      // forward to the next day/month before execution.
-      if (job.runAt <= now) {
-        continue;
-      }
+    const timezone = resolveReminderTimezone(sessionData?.timezone);
+    const monthlySavingsGoal =
+      getDecryptedNumber(sessionData?.monthlySavingsGoal) ?? null;
 
-      let sessionTimezone = timezoneByKey.get(job.key);
+    const scopedExpenses = this.getScopedExpenses(
+      expenses,
+      job.scheduleType,
+      now,
+      timezone,
+    );
 
-      if (!sessionTimezone) {
-        const sessionData = await sessionsService.getSessionDataByKey(job.key);
-        sessionTimezone = resolveReminderTimezone(sessionData?.timezone);
-        timezoneByKey.set(job.key, sessionTimezone);
-      }
+    const total = scopedExpenses.reduce(
+      (acc, expense) => acc + this.parseAmount(expense.amount),
+      0,
+    );
 
-      const nextRunAt = this.getNextRunAt(job, sessionTimezone);
-
-      if (nextRunAt.getTime() === job.runAt.getTime()) {
-        continue;
-      }
-
-      await expenseReminderJobService.syncPendingJobSchedule(job._id, {
-        runAt: nextRunAt,
+    if (job.scheduleType === "end_of_day") {
+      await this.sendDailyReminder(sender, {
+        chatId: job.chatId,
+        expenses,
+        income,
+        monthlySavingsGoal,
+        total,
+        transactionCount: scopedExpenses.length,
+        baseDate: now,
+        timezone,
       });
+    } else {
+      if (expenses.length || income.length) {
+        const { filename, readStream } =
+          xlmxService.getMonthlyAnalyticsReadStream(
+            expenses,
+            income,
+            monthlySavingsGoal ?? undefined,
+          );
+
+        await sender.sendDocument(job.chatId, {
+          source: readStream,
+          filename,
+        });
+      }
+
+      await sender.sendMessage(
+        job.chatId,
+        `Reminder: total expenses now are ${getFixedAmount(total)} EUR (${scopedExpenses.length} transactions).`,
+      );
     }
+
+    const nextRunAt = this.getNextRunAt(job, timezone, now);
+
+    return nextRunAt;
   }
 
-  private async tick(bot: Telegraf<IBotContext>) {
-    if (this.isTicking) {
-      return;
-    }
+  async claimNextDueJob(now: Date) {
+    return this.repository.claimNextDueJob(now);
+  }
 
-    this.isTicking = true;
+  async markExecutedAndRescheduled(jobId: ObjectId, nextRunAt: Date) {
+    return this.repository.markExecutedAndRescheduled(jobId, nextRunAt);
+  }
 
-    try {
-      await this.reconcilePendingTimezoneSensitiveJobs();
+  async syncPendingJobSchedule(jobId: ObjectId, input: { runAt: Date }) {
+    return this.repository.syncPendingJobSchedule(jobId, input);
+  }
 
-      while (true) {
-        const job = await expenseReminderJobService.claimNextDueJob(new Date());
-
-        if (!job || !job._id) {
-          break;
-        }
-
-        try {
-          const now = new Date();
-          const [expenses, income, sessionData] = await Promise.all([
-            transactionService.getExpensesByKey(job.key),
-            transactionService.getIncomeByKey(job.key),
-            sessionsService.getSessionDataByKey(job.key),
-          ]);
-          const timezone = resolveReminderTimezone(sessionData?.timezone);
-          const monthlySavingsGoal =
-            getDecryptedNumber(sessionData?.monthlySavingsGoal) ?? null;
-          const scopedExpenses = this.getScopedExpenses(
-            expenses,
-            job.scheduleType,
-            now,
-            timezone,
-          );
-          const total = scopedExpenses.reduce(
-            (acc, expense) => acc + this.parseAmount(expense.amount),
-            0,
-          );
-
-          if (job.scheduleType === "end_of_day") {
-            await this.sendDailyReminder(bot, {
-              chatId: job.chatId,
-              expenses,
-              income,
-              monthlySavingsGoal,
-              total,
-              transactionCount: scopedExpenses.length,
-              baseDate: now,
-              timezone,
-            });
-          } else {
-            if (expenses.length || income.length) {
-              const { filename, readStream } =
-                xlmxService.getMonthlyAnalyticsReadStream(
-                  expenses,
-                  income,
-                  monthlySavingsGoal ?? undefined,
-                );
-
-              await bot.telegram.sendDocument(job.chatId, {
-                source: readStream,
-                filename,
-              });
-            }
-
-            await bot.telegram.sendMessage(
-              job.chatId,
-              `Reminder: total expenses now are ${getFixedAmount(total)} EUR (${scopedExpenses.length} transactions).`,
-            );
-          }
-
-          const nextRunAt = this.getNextRunAt(job, timezone, now);
-          await expenseReminderJobService.markExecutedAndRescheduled(
-            job._id,
-            nextRunAt,
-          );
-        } catch (error) {
-          const errorText =
-            error instanceof Error ? error.message : "Unknown worker error";
-
-          await expenseReminderJobService.releaseForRetry(
-            {
-              _id: job._id,
-              attempts: job.attempts,
-              maxAttempts: job.maxAttempts,
-            },
-            60_000,
-            errorText,
-          );
-        }
-      }
-    } finally {
-      this.isTicking = false;
-    }
+  async getPendingTimezoneSensitiveJobs() {
+    return this.repository.getPendingTimezoneSensitiveJobs();
   }
 }
 
-export const expenseReminderWorker = new ExpenseReminderWorker();
+export const expenseReminderService = new ExpenseReminderService();

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import "dotenv/config";
 
-import "./register-aliases";
+import "../../register-aliases";
 
 import { Scenes, Telegraf } from "telegraf";
 import { Command } from "@commands/command.class";
@@ -9,21 +9,21 @@ import { StartCommand } from "@commands/start.command";
 import { commands } from "@/constants";
 import { IConfigService } from "@config/config.interface";
 import { ConfigService } from "@config/config.service";
-import { IBotContext } from "@context/context.interface";
-import { Scenario } from "./scenes/scene.class";
-import { TransactionCommand } from "./commands/transaction.command";
-import { ExpenseTransactionScene } from "./scenes/expense-transaction.scene";
-import { IncomeTransactionScene } from "./scenes/income-transaction.scene";
-import { TransactionsScene } from "./scenes/transactions.scene";
-import { XLMXCommand } from "./commands/xlmx.command";
-import { ReminderCommand } from "./commands/reminder.command";
-import { BalanceCommand } from "./commands/balance.command";
-import { SavingsGoalCommand } from "./commands/limit.command";
+import { IBotContext } from "@/types/app-context.interface";
+import { Scenario } from "@scenes/scene.class";
+import { TransactionCommand } from "@commands/transaction.command";
+import { ExpenseTransactionScene } from "@scenes/expense-transaction.scene";
+import { IncomeTransactionScene } from "@scenes/income-transaction.scene";
+import { TransactionsScene } from "@scenes/transactions.scene";
+import { XLMXCommand } from "@commands/xlmx.command";
+import { ReminderCommand } from "@commands/reminder.command";
+import { BalanceCommand } from "@commands/balance.command";
+import { SavingsGoalCommand } from "@commands/limit.command";
 import { session } from "telegraf-session-mongodb";
-import { connectToMongo, mongoDbClient } from "./db/connection";
-import { defaultSessionMiddleware } from "./middlewares/defaultSession.middleware";
-import { getSessionKeyFromContext } from "./helpers/getSessionKey.helper";
-import { expenseReminderWorker } from "./workers/expenseReminder.worker";
+import { connectToMongo, mongoDbClient } from "../../db/connection";
+import { defaultSessionMiddleware } from "@middlewares/defaultSession.middleware";
+import { getSessionKeyFromContext } from "@helpers/getSessionKey.helper";
+import { ensureAllIndexes } from "@/db/initialize";
 
 class Bot {
   bot: Telegraf<IBotContext>;
@@ -79,11 +79,11 @@ class Bot {
       command.handle();
     }
 
-    expenseReminderWorker.start(this.bot);
+    // expenseReminderWorker.start(this.bot);
 
-    console.time("Launching time");
+    console.time("Launching bot time");
     this.bot.launch();
-    console.timeEnd("Launching time");
+    console.timeEnd("Launching bot time");
   }
 }
 
@@ -92,6 +92,7 @@ const bot = new Bot(new ConfigService());
 const start = async () => {
   try {
     await connectToMongo();
+    await ensureAllIndexes();
 
     const sessions = session(mongoDbClient, {
       sessionName: "session",

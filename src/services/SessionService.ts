@@ -1,4 +1,4 @@
-import { SessionData } from "@/context/context.interface";
+import { SessionData } from "@/types/app-context.interface";
 import { mongoDbClient } from "@/db/connection";
 
 export interface ISession {
@@ -27,15 +27,16 @@ export class SessionsService {
     return session?.data ?? null;
   }
 
-  protected async updateSessionByKey<
-    T extends Partial<ISession["data"]>
-  >(key: string, data: T) {
+  protected async updateSessionByKey<T extends Partial<ISession["data"]>>(
+    key: string,
+    data: T,
+  ) {
     const setPayload = Object.entries(data).reduce<Record<string, unknown>>(
       (acc, [field, value]) => {
         acc[`data.${field}`] = value;
         return acc;
       },
-      {}
+      {},
     );
 
     if (!Object.keys(setPayload).length) {
@@ -45,7 +46,7 @@ export class SessionsService {
     return await this.sessionsData.updateOne(
       { key },
       { $set: setPayload },
-      { upsert: true }
+      { upsert: true },
     );
   }
 }

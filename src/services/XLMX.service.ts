@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { IAmountData } from "@/context/context.interface";
+import { IAmountData } from "@/types/app-context.interface";
 import { decrypt } from "@/helpers/decrypt";
 import { IEncryptedData } from "@/helpers/encrypt";
 import { filterDataForDateRange } from "@/helpers/filterDataForDateRange";
@@ -39,7 +39,7 @@ class XLMXService {
 
   generateXlsxStream<T extends IAmountData>(
     data: T[],
-    type: "expenses" | "income"
+    type: "expenses" | "income",
   ) {
     const { filteredData, startDate, endDate } =
       filterDataForDateRange<T>(data);
@@ -93,17 +93,17 @@ class XLMXService {
       xlmxService.generateXlsxStream(data, "expenses");
 
     const allSameDay = filteredData.every((item, _, arr) =>
-      moment(item.created_date).isSame(moment(arr[0].created_date), "day")
+      moment(item.created_date).isSame(moment(arr[0].created_date), "day"),
     );
 
     const firstTransaction = filteredData[0].created_date; // because each of them has the same day
 
     const filename = allSameDay
       ? `transactions_${getTransactionDateFormat(
-          moment(firstTransaction)
+          moment(firstTransaction),
         )}.xlsx`
       : `transactions_${getTransactionDateFormat(
-          startDate
+          startDate,
         )}_to_${getTransactionDateFormat(endDate)}.xlsx`;
 
     return { readStream, filename };
@@ -154,7 +154,9 @@ class XLMXService {
     );
     const net = totalIncome - totalExpenses;
     const expenseIncomePercent =
-      totalIncome > 0 ? `${((totalExpenses / totalIncome) * 100).toFixed(1)}%` : "n/a";
+      totalIncome > 0
+        ? `${((totalExpenses / totalIncome) * 100).toFixed(1)}%`
+        : "n/a";
 
     const groupedExpenseCategories = expenses.reduce<Map<string, number>>(
       (acc, item) => {
@@ -170,7 +172,9 @@ class XLMXService {
       .slice(0, 3);
 
     const savingsGoalValue =
-      monthlySavingsGoal != null ? `${getFixedAmount(monthlySavingsGoal)} EUR` : "not set";
+      monthlySavingsGoal != null
+        ? `${getFixedAmount(monthlySavingsGoal)} EUR`
+        : "not set";
     const currentSurplusValue = `${getFixedAmount(net)} EUR`;
     const goalStatusValue =
       monthlySavingsGoal == null
@@ -267,4 +271,3 @@ class XLMXService {
 }
 
 export const xlmxService = new XLMXService();
-

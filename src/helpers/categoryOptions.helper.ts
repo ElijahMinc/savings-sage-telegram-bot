@@ -1,7 +1,11 @@
-import { IAmountData } from "@/context/context.interface";
+import { IAmountData } from "@/types/app-context.interface";
 
 const MIN_CATEGORY_LENGTH = 2;
 const MAX_CATEGORY_LENGTH = 32;
+
+type CategoryCarrier = Pick<IAmountData, "category"> & {
+  tag?: string | null;
+};
 
 export const sanitizeCategory = (category?: string | null) => {
   if (!category) {
@@ -13,10 +17,11 @@ export const sanitizeCategory = (category?: string | null) => {
 };
 
 const isValidCategorySuggestion = (category: string) =>
-  category.length >= MIN_CATEGORY_LENGTH && category.length <= MAX_CATEGORY_LENGTH;
+  category.length >= MIN_CATEGORY_LENGTH &&
+  category.length <= MAX_CATEGORY_LENGTH;
 
 export const getTransactionCategory = (
-  item: Pick<IAmountData, "category" | "tag">,
+  item: CategoryCarrier,
 ) => {
   return sanitizeCategory(item.category) ?? sanitizeCategory(item.tag) ?? null;
 };

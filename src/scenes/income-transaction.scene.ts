@@ -10,7 +10,7 @@ import {
   CURRENCIES,
   IAmountData,
   SceneContexts,
-} from "@/context/context.interface";
+} from "@/types/app-context.interface";
 import moment from "moment";
 import "moment-timezone";
 import { containsSlash } from "@/helpers/containsHash.helper";
@@ -20,7 +20,7 @@ import { containsStrictNumber } from "@/helpers/containsStrictNumber.helper";
 import * as emoji from "node-emoji";
 import { getFixedAmount } from "@/helpers/getFixedAmount";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
-import { transactionService } from "@/services/TransactionService";
+import { transactionService } from "@/modules/transaction";
 
 enum TRANSACTION_COMMANDS {
   CHOOSE_CATEGORY = "CHOOSE_CATEGORY",
@@ -87,7 +87,10 @@ export class IncomeTransactionScene extends Scenario {
     });
 
     this.scene.action(TRANSACTION_COMMANDS.CHOOSE_CATEGORY, async (ctx) => {
-      await ctx.reply("Select one of the categories:", this.buildCategoryKeyboard());
+      await ctx.reply(
+        "Select one of the categories:",
+        this.buildCategoryKeyboard(),
+      );
     });
 
     this.scene.action(
@@ -279,4 +282,3 @@ ${emoji.get("label")} Category: *${state.chosenCategory}*`,
     );
   }
 }
-

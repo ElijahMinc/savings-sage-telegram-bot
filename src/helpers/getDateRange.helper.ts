@@ -1,4 +1,4 @@
-import { IAmountData } from "@/context/context.interface";
+import { IAmountData } from "@/types/app-context.interface";
 import moment from "moment";
 
 export function getDateRange(data: IAmountData[]) {

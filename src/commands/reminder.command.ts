@@ -1,13 +1,10 @@
 import { Telegraf, Markup } from "telegraf";
 import { message } from "telegraf/filters";
-import { IBotContext } from "@context/context.interface";
+import { IBotContext } from "@/types/app-context.interface";
 import { Command } from "./command.class";
 import { COMMAND_NAMES } from "@/constants";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
-import {
-  expenseReminderJobService,
-  ExpenseReminderScheduleType,
-} from "@/services/ExpenseReminderJobService";
+
 import {
   formatReminderRunAt,
   getNextReminderRunAt,
@@ -16,6 +13,8 @@ import {
   resolveReminderTimezone,
 } from "@/helpers/reminderSchedule.helper";
 import { getTimezoneFromCoordinates } from "@/helpers/timezoneFromCoordinates.helper";
+import { ExpenseReminderScheduleType } from "@/modules/expense-reminder/expense-reminder.types";
+import { expenseReminderService } from "@/modules/expense-reminder/expense-reminder.service";
 
 const MIN_SCHEDULE_AHEAD_MS = 30_000;
 const CALLBACK_PREFIX = "remind_preset:";
@@ -163,7 +162,7 @@ export class ReminderCommand extends Command {
 
   private async buildReminderKeyboard(key: string) {
     const reminders =
-      await expenseReminderJobService.getExpensesTotalJobsByKey(key);
+      await expenseReminderService.getExpensesTotalJobsByKey(key);
     const activePresets = new Set(
       reminders.map((reminder) => SCHEDULE_TO_PRESET[reminder.scheduleType]),
     );
@@ -205,7 +204,7 @@ export class ReminderCommand extends Command {
   private async showConfiguredReminders(ctx: IBotContext, key: string) {
     const timezone = resolveReminderTimezone(ctx.session.timezone);
     const reminders =
-      await expenseReminderJobService.getExpensesTotalJobsByKey(key);
+      await expenseReminderService.getExpensesTotalJobsByKey(key);
 
     if (!reminders.length) {
       await ctx.reply("No active reminders yet.");
@@ -249,7 +248,7 @@ export class ReminderCommand extends Command {
       return;
     }
 
-    const result = await expenseReminderJobService.upsertExpensesTotalJob({
+    const result = await expenseReminderService.upsertExpensesTotalJob({
       key,
       chatId,
       userId,
@@ -287,7 +286,7 @@ export class ReminderCommand extends Command {
     }
 
     const disabled =
-      await expenseReminderJobService.disableExpensesTotalJobByKey(key);
+      await expenseReminderService.disableExpensesTotalJobByKey(key);
 
     await ctx.reply(
       disabled
@@ -310,7 +309,7 @@ export class ReminderCommand extends Command {
 
     const scheduleType = PRESET_TO_SCHEDULE[preset];
     const disabled =
-      await expenseReminderJobService.disableExpensesTotalJobByScheduleType(
+      await expenseReminderService.disableExpensesTotalJobByScheduleType(
         key,
         scheduleType,
       );
