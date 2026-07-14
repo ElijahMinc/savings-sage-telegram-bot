@@ -10,6 +10,7 @@ class ExpenseReminderWorker implements ICronWorker<TelegramExpenseReminderSender
   public name = "ExpenseReminderWorker";
   private task: ScheduledTask | null = null;
   private isTicking = false;
+  private isStopping = false;
 
   run(sender: TelegramExpenseReminderSender) {
     if (this.task) {
@@ -21,6 +22,16 @@ class ExpenseReminderWorker implements ICronWorker<TelegramExpenseReminderSender
     this.task = cron.schedule("* * * * *", async () => {
       await this.tick(sender);
     });
+  }
+
+  async stop() {
+    this.isStopping = true;
+    this.task?.stop();
+    this.task = null;
+
+    while (this.isTicking) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
   }
 
   private async reconcilePendingTimezoneSensitiveJobs() {
@@ -75,7 +86,7 @@ class ExpenseReminderWorker implements ICronWorker<TelegramExpenseReminderSender
     try {
       await this.reconcilePendingTimezoneSensitiveJobs();
 
-      while (true) {
+      while (!this.isStopping) {
         const job = await expenseReminderService.claimNextDueJob(new Date());
 
         if (!job || !job._id) {

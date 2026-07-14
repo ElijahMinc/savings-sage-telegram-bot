@@ -19,4 +19,13 @@ const connectToMongo = async () => {
   isConnected = true;
 };
 
-export { mongoDbClient, connectToMongo };
+const disconnectFromMongo = async () => {
+  if (!isConnected) {
+    return;
+  }
+
+  await client.close();
+  isConnected = false;
+};
+
+export { mongoDbClient, connectToMongo, disconnectFromMongo };

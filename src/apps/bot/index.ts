@@ -20,10 +20,15 @@ import { ReminderCommand } from "@commands/reminder.command";
 import { BalanceCommand } from "@commands/balance.command";
 import { SavingsGoalCommand } from "@commands/limit.command";
 import { session } from "telegraf-session-mongodb";
-import { connectToMongo, mongoDbClient } from "../../db/connection";
+import {
+  connectToMongo,
+  disconnectFromMongo,
+  mongoDbClient,
+} from "../../db/connection";
 import { defaultSessionMiddleware } from "@middlewares/defaultSession.middleware";
 import { getSessionKeyFromContext } from "@helpers/getSessionKey.helper";
 import { ensureAllIndexes } from "@/db/initialize";
+import { registerGracefulShutdown } from "@helpers/gracefulShutdown.helper";
 
 class Bot {
   bot: Telegraf<IBotContext>;
@@ -105,6 +110,11 @@ const start = async () => {
     bot.bot.use(defaultSessionMiddleware());
 
     bot.init();
+
+    registerGracefulShutdown(async (signal) => {
+      bot.bot.stop(signal);
+      await disconnectFromMongo();
+    });
   } catch (error) {
     console.log(error);
   }

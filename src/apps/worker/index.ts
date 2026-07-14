@@ -5,7 +5,7 @@ import "../../register-aliases";
 import { IConfigService } from "@config/config.interface";
 import { ConfigService } from "@config/config.service";
 import { IBotContext } from "@/types/app-context.interface";
-import { connectToMongo } from "@/db/connection";
+import { connectToMongo, disconnectFromMongo } from "@/db/connection";
 
 import { Telegraf } from "telegraf";
 import { ensureAllIndexes } from "@/db/initialize";
@@ -13,6 +13,7 @@ import {
   expenseReminderWorker,
   TelegramExpenseReminderSender,
 } from "@/modules/expense-reminder";
+import { registerGracefulShutdown } from "@/helpers/gracefulShutdown.helper";
 
 class WorkerApp {
   private readonly bot: Telegraf<IBotContext>;
@@ -36,6 +37,11 @@ const start = async () => {
     console.time("Launching worker");
     await workerApp.init();
     console.timeEnd("Launching worker");
+
+    registerGracefulShutdown(async () => {
+      await expenseReminderWorker.stop();
+      await disconnectFromMongo();
+    });
   } catch (error) {
     console.error("Failed to start worker app", error);
     process.exit(1);
