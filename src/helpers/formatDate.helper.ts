@@ -1,5 +1,5 @@
-import moment from "moment";
+import { format } from "date-fns";
 
 export function formatDate(dateStr: Date) {
-  return moment(dateStr).format("DD/MM/YYYY");
+  return format(dateStr, "dd/MM/yyyy");
 }

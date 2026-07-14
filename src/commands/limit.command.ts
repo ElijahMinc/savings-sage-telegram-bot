@@ -10,7 +10,7 @@ import { transactionService } from "@/modules/transaction";
 import { decrypt } from "@/helpers/decrypt";
 import { IEncryptedData } from "@/helpers/encrypt";
 import { getLimitSnapshot } from "@/helpers/limitSnapshot.helper";
-import moment from "moment";
+import { getDaysInMonth, isSameMonth } from "date-fns";
 import {
   encryptNumber,
   getDecryptedNumber,
@@ -30,18 +30,18 @@ export class SavingsGoalCommand extends Command {
   }
 
   private getCurrentMonthIncomeTotal(income: IAmountData[]) {
-    const now = moment();
+    const now = new Date();
 
     return income
-      .filter((item) => moment(item.created_date).isSame(now, "month"))
+      .filter((item) => isSameMonth(new Date(item.created_date), now))
       .reduce((acc, item) => acc + this.getNumericAmount(item.amount), 0);
   }
 
   private getCurrentMonthExpenseTotal(expenses: IAmountData[]) {
-    const now = moment();
+    const now = new Date();
 
     return expenses
-      .filter((item) => moment(item.created_date).isSame(now, "month"))
+      .filter((item) => isSameMonth(new Date(item.created_date), now))
       .reduce((acc, item) => acc + this.getNumericAmount(item.amount), 0);
   }
 
@@ -106,13 +106,13 @@ export class SavingsGoalCommand extends Command {
       ]);
       const monthlyIncome = this.getCurrentMonthIncomeTotal(income);
       const monthlyExpenses = this.getCurrentMonthExpenseTotal(expenses);
-      const now = moment();
+      const now = new Date();
       const snapshot = getLimitSnapshot({
         monthlyIncome,
         monthlyExpenses,
         monthlySavingsGoal,
-        daysInMonth: now.daysInMonth(),
-        currentDayOfMonth: now.date(),
+        daysInMonth: getDaysInMonth(now),
+        currentDayOfMonth: now.getDate(),
       });
 
       const feasibilityMessage =

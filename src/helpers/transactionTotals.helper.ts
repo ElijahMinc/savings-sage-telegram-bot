@@ -1,9 +1,7 @@
-import moment from "moment";
+import { isSameDay, isSameMonth } from "date-fns";
 import { IAmountData } from "@/types/app-context.interface";
 import { decrypt } from "@/helpers/decrypt";
 import { IEncryptedData } from "@/helpers/encrypt";
-
-type MomentInstance = ReturnType<typeof moment>;
 
 export function decryptTransactionAmount(amount: IAmountData["amount"]): number {
   if (typeof amount === "number") {
@@ -15,19 +13,19 @@ export function decryptTransactionAmount(amount: IAmountData["amount"]): number 
 
 export function sumTransactionsForDay(
   transactions: IAmountData[],
-  date: MomentInstance = moment(),
+  date: Date = new Date(),
 ): number {
   return transactions
-    .filter((t) => moment(t.created_date).isSame(date, "day"))
+    .filter((t) => isSameDay(new Date(t.created_date), date))
     .reduce((total, t) => total + decryptTransactionAmount(t.amount), 0);
 }
 
 export function sumTransactionsForMonth(
   transactions: IAmountData[],
-  date: MomentInstance = moment(),
+  date: Date = new Date(),
 ): number {
   return transactions
-    .filter((t) => moment(t.created_date).isSame(date, "month"))
+    .filter((t) => isSameMonth(new Date(t.created_date), date))
     .reduce((total, t) => total + decryptTransactionAmount(t.amount), 0);
 }
 

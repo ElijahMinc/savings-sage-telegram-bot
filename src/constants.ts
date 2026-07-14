@@ -75,7 +75,7 @@ export const regexStrictNumber = new RegExp(/^\d+(\.\d+)?$/);
 
 export const regexSlash = new RegExp(/\//);
 
-export const transactionDefaultFormatDate = "DD-MM-YYYY";
+export const transactionDefaultFormatDate = "dd-MM-yyyy";
 
 export const dailyReportCRONMask = "* * * * *";
 // * * * * * - one minute

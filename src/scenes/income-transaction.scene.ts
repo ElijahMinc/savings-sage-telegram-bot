@@ -11,7 +11,6 @@ import {
   IAmountData,
   SceneContexts,
 } from "@/types/app-context.interface";
-import "moment-timezone";
 import { containsSlash } from "@/helpers/containsHash.helper";
 import { encrypt } from "@/helpers/encrypt";
 import { containsStrictNumber } from "@/helpers/containsStrictNumber.helper";

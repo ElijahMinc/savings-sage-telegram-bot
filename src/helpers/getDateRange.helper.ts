@@ -1,11 +1,11 @@
+import { format, subMonths } from "date-fns";
 import { IAmountData } from "@/types/app-context.interface";
-import moment from "moment";
 
 export function getDateRange(data: IAmountData[]) {
-  const lastTransactionDate = moment(data[data.length - 1].created_date);
-  const startDate = lastTransactionDate.clone().subtract(1, "month");
+  const lastTransactionDate = new Date(data[data.length - 1].created_date);
+  const startDate = subMonths(lastTransactionDate, 1);
   return {
-    startDate: startDate.format("DD-MM-YYYY"),
-    endDate: lastTransactionDate.format("DD-MM-YYYY"),
+    startDate: format(startDate, "dd-MM-yyyy"),
+    endDate: format(lastTransactionDate, "dd-MM-yyyy"),
   };
 }

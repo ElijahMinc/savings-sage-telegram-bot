@@ -6,7 +6,7 @@ import { filterDataForDateRange } from "@/helpers/filterDataForDateRange";
 import { formatDate } from "@/helpers/formatDate.helper";
 import { getFixedAmount } from "@/helpers/getFixedAmount";
 import { getTransactionDateFormat } from "@/helpers/getTransactionDateFormat";
-import moment from "moment";
+import { format, isSameDay, isSameMonth } from "date-fns";
 import { Stream } from "stream";
 import XLSX from "xlsx";
 
@@ -23,8 +23,9 @@ class XLMXService {
     data: T[],
     period: "day" | "month",
   ) {
-    const now = moment();
-    return data.filter((item) => moment(item.created_date).isSame(now, period));
+    const now = new Date();
+    const compare = period === "day" ? isSameDay : isSameMonth;
+    return data.filter((item) => compare(new Date(item.created_date), now));
   }
 
   generateXlsx<T>(data: T[]) {
@@ -93,14 +94,14 @@ class XLMXService {
       xlmxService.generateXlsxStream(data, "expenses");
 
     const allSameDay = filteredData.every((item, _, arr) =>
-      moment(item.created_date).isSame(moment(arr[0].created_date), "day"),
+      isSameDay(new Date(item.created_date), new Date(arr[0].created_date)),
     );
 
     const firstTransaction = filteredData[0].created_date; // because each of them has the same day
 
     const filename = allSameDay
       ? `transactions_${getTransactionDateFormat(
-          moment(firstTransaction),
+          new Date(firstTransaction),
         )}.xlsx`
       : `transactions_${getTransactionDateFormat(
           startDate,
@@ -117,9 +118,9 @@ class XLMXService {
   ) {
     const expenses = this.getDataForCurrentPeriod(expensesInput, period);
     const income = this.getDataForCurrentPeriod(incomeInput, period);
-    const now = moment();
+    const now = new Date();
     const periodLabel =
-      period === "day" ? now.format("YYYY-MM-DD") : now.format("YYYY-MM");
+      period === "day" ? format(now, "yyyy-MM-dd") : format(now, "yyyy-MM");
 
     const transactionRows = [
       ...income.map((item) => ({

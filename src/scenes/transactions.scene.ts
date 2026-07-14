@@ -14,7 +14,7 @@ import { getFixedAmount } from "@/helpers/getFixedAmount";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
 import { Scenario } from "@/scenes/scene.class";
 import { transactionService } from "@/modules/transaction";
-import moment from "moment";
+import { format } from "date-fns";
 import { Markup, Scenes } from "telegraf";
 import { parseAmountInput } from "@/helpers/parseAmountInput.helper";
 import { decryptTransactionAmount } from "@/helpers/transactionTotals.helper";
@@ -27,7 +27,7 @@ function formatTransactionLine(
   const amount = getFixedAmount(decryptTransactionAmount(item.amount));
   const sign = item.type === "income" ? "+" : "-";
   const category = getTransactionCategory(item) ?? "No category";
-  const timestamp = moment(item.created_date).format("DD.MM HH:mm");
+  const timestamp = format(new Date(item.created_date), "dd.MM HH:mm");
   const absoluteIndex = page * ITEMS_PER_PAGE + rowIndex + 1;
 
   return `${absoluteIndex}. ${sign}${amount} EUR | ${category} | ${timestamp}`;

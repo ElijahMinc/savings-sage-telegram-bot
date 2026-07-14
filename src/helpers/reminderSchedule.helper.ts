@@ -1,6 +1,24 @@
 import { ExpenseReminderScheduleType } from "@/modules/expense-reminder/expense-reminder.types";
-import { addHours, addMinutes } from "date-fns";
-import moment from "moment-timezone";
+import {
+  addDays,
+  addHours,
+  addMinutes,
+  addMonths,
+  endOfDay,
+  endOfHour,
+  endOfMinute,
+  endOfMonth,
+  getDate,
+  getDaysInMonth,
+  isAfter,
+  set,
+  startOfDay,
+  startOfHour,
+  startOfMinute,
+  startOfMonth,
+  subDays,
+} from "date-fns";
+import { formatInTimeZone, fromZonedTime, toZonedTime } from "date-fns-tz";
 
 export const DEFAULT_REMINDER_TIMEZONE = "UTC";
 
@@ -21,7 +39,12 @@ export const isValidReminderTimezone = (timezone?: string | null) => {
     return false;
   }
 
-  return moment.tz.zone(normalizedTimezone) != null;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: normalizedTimezone });
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 export const resolveReminderTimezone = (timezone?: string | null) => {
@@ -31,6 +54,9 @@ export const resolveReminderTimezone = (timezone?: string | null) => {
 
   return DEFAULT_REMINDER_TIMEZONE;
 };
+
+const setEndOfDayTime = (date: Date) =>
+  set(date, { hours: 23, minutes: 59, seconds: 0, milliseconds: 0 });
 
 export const getNextReminderRunAt = (input: {
   scheduleType: ExpenseReminderScheduleType;
@@ -45,43 +71,26 @@ export const getNextReminderRunAt = (input: {
     case "every_hour":
       return addHours(baseDate, 1);
     case "end_of_day": {
-      const zonedDate = moment.tz(
-        baseDate,
-        resolveReminderTimezone(input.timezone),
-      );
-      let next = zonedDate.clone().hour(23).minute(59).second(0).millisecond(0);
+      const tz = resolveReminderTimezone(input.timezone);
+      const zonedDate = toZonedTime(baseDate, tz);
+      let next = setEndOfDayTime(zonedDate);
 
-      if (!next.isAfter(zonedDate)) {
-        next = next.add(1, "day");
+      if (!isAfter(next, zonedDate)) {
+        next = addDays(next, 1);
       }
 
-      return next.toDate();
+      return fromZonedTime(next, tz);
     }
     case "end_of_month": {
-      const zonedDate = moment.tz(
-        baseDate,
-        resolveReminderTimezone(input.timezone),
-      );
-      let next = zonedDate
-        .clone()
-        .endOf("month")
-        .hour(23)
-        .minute(59)
-        .second(0)
-        .millisecond(0);
+      const tz = resolveReminderTimezone(input.timezone);
+      const zonedDate = toZonedTime(baseDate, tz);
+      let next = setEndOfDayTime(endOfMonth(zonedDate));
 
-      if (!next.isAfter(zonedDate)) {
-        next = zonedDate
-          .clone()
-          .add(1, "month")
-          .endOf("month")
-          .hour(23)
-          .minute(59)
-          .second(0)
-          .millisecond(0);
+      if (!isAfter(next, zonedDate)) {
+        next = setEndOfDayTime(endOfMonth(addMonths(zonedDate, 1)));
       }
 
-      return next.toDate();
+      return fromZonedTime(next, tz);
     }
     default:
       return addHours(baseDate, 1);
@@ -90,67 +99,56 @@ export const getNextReminderRunAt = (input: {
 
 export const formatReminderRunAt = (date: Date, timezone?: string | null) => {
   const resolvedTimezone = resolveReminderTimezone(timezone);
-  return moment(date).tz(resolvedTimezone).format("YYYY-MM-DD HH:mm z");
+  return formatInTimeZone(date, resolvedTimezone, "yyyy-MM-dd HH:mm zzz");
+};
+
+const buildZonedRange = (
+  date: Date,
+  timezone: string | undefined | null,
+  startFn: (d: Date) => Date,
+  endFn: (d: Date) => Date,
+) => {
+  const tz = resolveReminderTimezone(timezone);
+  const zonedDate = toZonedTime(date, tz);
+
+  return {
+    start: fromZonedTime(startFn(zonedDate), tz),
+    end: fromZonedTime(endFn(zonedDate), tz),
+  };
 };
 
 export const getReminderMinuteRange = (
   date: Date,
   timezone?: string | null,
-) => {
-  const zonedDate = moment.tz(date, resolveReminderTimezone(timezone));
+) => buildZonedRange(date, timezone, startOfMinute, endOfMinute);
 
-  return {
-    start: zonedDate.clone().startOf("minute").toDate(),
-    end: zonedDate.clone().endOf("minute").toDate(),
-  };
-};
+export const getReminderHourRange = (date: Date, timezone?: string | null) =>
+  buildZonedRange(date, timezone, startOfHour, endOfHour);
 
-export const getReminderHourRange = (date: Date, timezone?: string | null) => {
-  const zonedDate = moment.tz(date, resolveReminderTimezone(timezone));
+export const getReminderDayRange = (date: Date, timezone?: string | null) =>
+  buildZonedRange(date, timezone, startOfDay, endOfDay);
 
-  return {
-    start: zonedDate.clone().startOf("hour").toDate(),
-    end: zonedDate.clone().endOf("hour").toDate(),
-  };
-};
-
-export const getReminderDayRange = (date: Date, timezone?: string | null) => {
-  const zonedDate = moment.tz(date, resolveReminderTimezone(timezone));
-
-  return {
-    start: zonedDate.clone().startOf("day").toDate(),
-    end: zonedDate.clone().endOf("day").toDate(),
-  };
-};
-
-export const getReminderMonthRange = (date: Date, timezone?: string | null) => {
-  const zonedDate = moment.tz(date, resolveReminderTimezone(timezone));
-
-  return {
-    start: zonedDate.clone().startOf("month").toDate(),
-    end: zonedDate.clone().endOf("month").toDate(),
-  };
-};
+export const getReminderMonthRange = (date: Date, timezone?: string | null) =>
+  buildZonedRange(date, timezone, startOfMonth, endOfMonth);
 
 export const getReminderHistoryCutoff = (
   date: Date,
   timezone?: string | null,
 ) => {
-  return moment
-    .tz(date, resolveReminderTimezone(timezone))
-    .startOf("day")
-    .subtract(6, "days")
-    .toDate();
+  const tz = resolveReminderTimezone(timezone);
+  const zonedDate = toZonedTime(date, tz);
+  return fromZonedTime(subDays(startOfDay(zonedDate), 6), tz);
 };
 
 export const getReminderMonthMetrics = (
   date: Date,
   timezone?: string | null,
 ) => {
-  const zonedDate = moment.tz(date, resolveReminderTimezone(timezone));
+  const tz = resolveReminderTimezone(timezone);
+  const zonedDate = toZonedTime(date, tz);
 
   return {
-    currentDayOfMonth: zonedDate.date(),
-    daysInMonth: zonedDate.daysInMonth(),
+    currentDayOfMonth: getDate(zonedDate),
+    daysInMonth: getDaysInMonth(zonedDate),
   };
 };

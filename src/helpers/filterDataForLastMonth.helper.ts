@@ -1,19 +1,24 @@
+import {
+  endOfDay,
+  isWithinInterval,
+  startOfDay,
+  subMonths,
+} from "date-fns";
 import { IAmountData } from "@/types/app-context.interface";
-import moment from "moment";
 
 export function filterDataForLastMonth<T extends IAmountData>(data: T[]) {
-  const lastTransactionDate = moment(data[data.length - 1].created_date);
-  const startDate = lastTransactionDate
-    .clone()
-    .subtract(1, "month")
-    .startOf("day");
-  const endDate = lastTransactionDate.clone().endOf("day");
+  const lastTransactionDate = new Date(data[data.length - 1].created_date);
+  const startDate = startOfDay(subMonths(lastTransactionDate, 1));
+  const endDate = endOfDay(lastTransactionDate);
 
   return {
     filteredData: data.filter((item) =>
-      moment(item.created_date).isBetween(startDate, endDate, null, "[]"),
+      isWithinInterval(new Date(item.created_date), {
+        start: startDate,
+        end: endDate,
+      }),
     ),
-    startDate: startDate,
-    endDate: endDate,
+    startDate,
+    endDate,
   };
 }

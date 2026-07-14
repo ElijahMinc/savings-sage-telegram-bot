@@ -1,4 +1,4 @@
-import moment from "moment";
+import { format, getDaysInMonth } from "date-fns";
 import { IAmountData } from "@/types/app-context.interface";
 import { getLimitSnapshot, ILimitSnapshot } from "@/helpers/limitSnapshot.helper";
 import {
@@ -35,7 +35,7 @@ export function computeExpenseLimitResult(input: {
   savingsGoalCarryoverAmount?: SessionEncryptedNumber;
   savingsGoalExtraAmount?: SessionEncryptedNumber;
 }): IExpenseLimitResult {
-  const now = moment();
+  const now = new Date();
   const totalExpensesToday = sumTransactionsForDay(input.expenses, now);
   const monthlyIncome = sumTransactionsForMonth(input.income, now);
   const monthlyExpenses = sumTransactionsForMonth(input.expenses, now);
@@ -47,8 +47,8 @@ export function computeExpenseLimitResult(input: {
           monthlyIncome,
           monthlyExpenses,
           monthlySavingsGoal,
-          daysInMonth: now.daysInMonth(),
-          currentDayOfMonth: now.date(),
+          daysInMonth: getDaysInMonth(now),
+          currentDayOfMonth: now.getDate(),
         })
       : null;
 
@@ -56,7 +56,7 @@ export function computeExpenseLimitResult(input: {
   const sessionUpdates: IExpenseLimitSessionUpdates = {};
 
   if (monthlySavingsGoal != null && dailyLimit != null) {
-    const dayKey = now.format("YYYY-MM-DD");
+    const dayKey = format(now, "yyyy-MM-dd");
     const previousAppliedToday =
       input.savingsGoalCarryoverDate === dayKey
         ? (getDecryptedNumber(input.savingsGoalCarryoverAmount) ?? 0)
