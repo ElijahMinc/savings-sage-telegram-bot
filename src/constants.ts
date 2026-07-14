@@ -46,8 +46,6 @@ export const commands = Object.freeze([
   },
 ]);
 
-export const SCOPES = ["https://www.googleapis.com/auth/drive.file"];
-
 export const DEFAULT_EXPENSE_CATEGORIES = [
   "Products",
   "Cafe",
