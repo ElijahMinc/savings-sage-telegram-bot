@@ -1,44 +1,22 @@
 import { Telegraf } from "telegraf";
-import { IBotContext, IAmountData } from "@/types/app-context.interface";
+import { IBotContext } from "@/types/app-context.interface";
 import { Command } from "./command.class";
 import { COMMAND_NAMES } from "@/constants";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
 import { transactionService } from "@/modules/transaction";
-import { decrypt } from "@/helpers/decrypt";
-import { IEncryptedData } from "@/helpers/encrypt";
 import { getFixedAmount } from "@/helpers/getFixedAmount";
-import { getDaysInMonth, isSameDay, isSameMonth } from "date-fns";
+import { getDaysInMonth } from "date-fns";
 import { getDecryptedNumber } from "@/helpers/encryptedNumber.helper";
 import { getLimitSnapshot } from "@/helpers/limitSnapshot.helper";
+import {
+  sumTransactionsForDay,
+  sumTransactionsForMonth,
+} from "@/helpers/transactionTotals.helper";
 import * as emoji from "node-emoji";
 
 export class BalanceCommand extends Command {
   constructor(public bot: Telegraf<IBotContext>) {
     super(bot);
-  }
-
-  private getNumericAmount(amount: IAmountData["amount"]): number {
-    if (typeof amount === "number") {
-      return amount;
-    }
-
-    return Number(decrypt(amount as IEncryptedData));
-  }
-
-  private sumForToday(items: IAmountData[]) {
-    const today = new Date();
-
-    return items
-      .filter((item) => isSameDay(new Date(item.created_date), today))
-      .reduce((acc, item) => acc + this.getNumericAmount(item.amount), 0);
-  }
-
-  private sumForCurrentMonth(items: IAmountData[]) {
-    const now = new Date();
-
-    return items
-      .filter((item) => isSameMonth(new Date(item.created_date), now))
-      .reduce((acc, item) => acc + this.getNumericAmount(item.amount), 0);
   }
 
   handle(): void {
@@ -55,9 +33,9 @@ export class BalanceCommand extends Command {
         transactionService.getIncomeByKey(key),
       ]);
 
-      const spentToday = this.sumForToday(expenses);
-      const monthlyIncome = this.sumForCurrentMonth(income);
-      const monthlyExpenses = this.sumForCurrentMonth(expenses);
+      const spentToday = sumTransactionsForDay(expenses);
+      const monthlyIncome = sumTransactionsForMonth(income);
+      const monthlyExpenses = sumTransactionsForMonth(expenses);
       const monthlySavingsGoal = getDecryptedNumber(
         ctx.session.monthlySavingsGoal,
       );

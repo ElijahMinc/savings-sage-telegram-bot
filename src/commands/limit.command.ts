@@ -1,48 +1,23 @@
 import { Telegraf } from "telegraf";
 import * as emoji from "node-emoji";
-import { IBotContext, IAmountData } from "@/types/app-context.interface";
+import { IBotContext } from "@/types/app-context.interface";
 import { Command } from "./command.class";
 import { COMMAND_NAMES } from "@/constants";
 import { containsStrictNumber } from "@/helpers/containsStrictNumber.helper";
 import { getFixedAmount } from "@/helpers/getFixedAmount";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
 import { transactionService } from "@/modules/transaction";
-import { decrypt } from "@/helpers/decrypt";
-import { IEncryptedData } from "@/helpers/encrypt";
 import { getLimitSnapshot } from "@/helpers/limitSnapshot.helper";
-import { getDaysInMonth, isSameMonth } from "date-fns";
+import { getDaysInMonth } from "date-fns";
 import {
   encryptNumber,
   getDecryptedNumber,
 } from "@/helpers/encryptedNumber.helper";
+import { sumTransactionsForMonth } from "@/helpers/transactionTotals.helper";
 
 export class SavingsGoalCommand extends Command {
   constructor(public bot: Telegraf<IBotContext>) {
     super(bot);
-  }
-
-  private getNumericAmount(amount: IAmountData["amount"]): number {
-    if (typeof amount === "number") {
-      return amount;
-    }
-
-    return Number(decrypt(amount as IEncryptedData));
-  }
-
-  private getCurrentMonthIncomeTotal(income: IAmountData[]) {
-    const now = new Date();
-
-    return income
-      .filter((item) => isSameMonth(new Date(item.created_date), now))
-      .reduce((acc, item) => acc + this.getNumericAmount(item.amount), 0);
-  }
-
-  private getCurrentMonthExpenseTotal(expenses: IAmountData[]) {
-    const now = new Date();
-
-    return expenses
-      .filter((item) => isSameMonth(new Date(item.created_date), now))
-      .reduce((acc, item) => acc + this.getNumericAmount(item.amount), 0);
   }
 
   handle(): void {
@@ -104,8 +79,8 @@ export class SavingsGoalCommand extends Command {
         transactionService.getIncomeByKey(key),
         transactionService.getExpensesByKey(key),
       ]);
-      const monthlyIncome = this.getCurrentMonthIncomeTotal(income);
-      const monthlyExpenses = this.getCurrentMonthExpenseTotal(expenses);
+      const monthlyIncome = sumTransactionsForMonth(income);
+      const monthlyExpenses = sumTransactionsForMonth(expenses);
       const now = new Date();
       const snapshot = getLimitSnapshot({
         monthlyIncome,

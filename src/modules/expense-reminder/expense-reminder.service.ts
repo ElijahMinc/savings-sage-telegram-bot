@@ -10,10 +10,9 @@ import {
 } from "@/helpers/reminderSchedule.helper";
 import { expenseReminderRepository } from "./expense-reminder.repository";
 import { getFixedAmount } from "@/helpers/getFixedAmount";
-import { decrypt } from "@/helpers/decrypt";
 import { IAmountData } from "@/types/app-context.interface";
-import { IEncryptedData } from "@/helpers/encrypt";
 import { getLimitSnapshot } from "@/helpers/limitSnapshot.helper";
+import { decryptTransactionAmount } from "@/helpers/transactionTotals.helper";
 import { transactionService } from "@/modules/transaction";
 import { sessionsService } from "@/services/SessionService";
 import { getDecryptedNumber } from "@/helpers/encryptedNumber.helper";
@@ -89,14 +88,6 @@ class ExpenseReminderService {
     });
   }
 
-  private parseAmount(amount: IAmountData["amount"]): number {
-    if (typeof amount === "number") {
-      return amount;
-    }
-
-    return Number(decrypt(amount as IEncryptedData));
-  }
-
   private getScopedExpenses(
     expenses: IAmountData[],
     scheduleType: ExpenseReminderScheduleType,
@@ -143,7 +134,7 @@ class ExpenseReminderService {
         return total;
       }
 
-      return total + this.parseAmount(item.amount);
+      return total + decryptTransactionAmount(item.amount);
     }, 0);
   }
 
@@ -161,7 +152,7 @@ class ExpenseReminderService {
         return sum;
       }
 
-      return sum + this.parseAmount(expense.amount);
+      return sum + decryptTransactionAmount(expense.amount);
     }, 0);
 
     return total / 7;
@@ -435,7 +426,7 @@ class ExpenseReminderService {
     );
 
     const total = scopedExpenses.reduce(
-      (acc, expense) => acc + this.parseAmount(expense.amount),
+      (acc, expense) => acc + decryptTransactionAmount(expense.amount),
       0,
     );
 

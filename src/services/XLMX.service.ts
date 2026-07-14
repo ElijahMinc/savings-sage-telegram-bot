@@ -1,24 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { IAmountData } from "@/types/app-context.interface";
-import { decrypt } from "@/helpers/decrypt";
-import { IEncryptedData } from "@/helpers/encrypt";
 import { filterDataForDateRange } from "@/helpers/filterDataForDateRange";
 import { formatDate } from "@/helpers/formatDate.helper";
 import { getFixedAmount } from "@/helpers/getFixedAmount";
 import { getTransactionDateFormat } from "@/helpers/getTransactionDateFormat";
+import { decryptTransactionAmount } from "@/helpers/transactionTotals.helper";
 import { format, isSameDay, isSameMonth } from "date-fns";
 import { Stream } from "stream";
 import XLSX from "xlsx";
 
 class XLMXService {
-  private getAmountAsNumber(item: IAmountData) {
-    if (typeof item.amount === "number") {
-      return item.amount;
-    }
-
-    return Number(decrypt(item.amount as IEncryptedData));
-  }
-
   private getDataForCurrentPeriod<T extends IAmountData>(
     data: T[],
     period: "day" | "month",
@@ -47,7 +38,7 @@ class XLMXService {
 
     let total = 0;
     const transformedData = filteredData.map((item) => {
-      const amount = this.getAmountAsNumber(item);
+      const amount = decryptTransactionAmount(item.amount);
       total += amount;
 
       return {
@@ -129,7 +120,7 @@ class XLMXService {
           formatDate(item.created_date),
           "Income",
           item.category || "Other",
-          `+${getFixedAmount(this.getAmountAsNumber(item))}`,
+          `+${getFixedAmount(decryptTransactionAmount(item.amount))}`,
           item.currency,
         ],
       })),
@@ -139,18 +130,18 @@ class XLMXService {
           formatDate(item.created_date),
           "Expense",
           item.category || "Other",
-          `-${getFixedAmount(this.getAmountAsNumber(item))}`,
+          `-${getFixedAmount(decryptTransactionAmount(item.amount))}`,
           item.currency,
         ],
       })),
     ].sort((a, b) => a.createdDate - b.createdDate);
 
     const totalExpenses = expenses.reduce(
-      (acc, item) => acc + this.getAmountAsNumber(item),
+      (acc, item) => acc + decryptTransactionAmount(item.amount),
       0,
     );
     const totalIncome = income.reduce(
-      (acc, item) => acc + this.getAmountAsNumber(item),
+      (acc, item) => acc + decryptTransactionAmount(item.amount),
       0,
     );
     const net = totalIncome - totalExpenses;
@@ -162,7 +153,7 @@ class XLMXService {
     const groupedExpenseCategories = expenses.reduce<Map<string, number>>(
       (acc, item) => {
         const key = item.category?.trim() || "Other";
-        const amount = this.getAmountAsNumber(item);
+        const amount = decryptTransactionAmount(item.amount);
         acc.set(key, (acc.get(key) ?? 0) + amount);
         return acc;
       },
