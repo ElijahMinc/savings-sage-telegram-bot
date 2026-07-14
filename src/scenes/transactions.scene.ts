@@ -1,12 +1,10 @@
 import { SCENES_NAMES, START_COMMAND_MESSAGE } from "@/constants";
 import {
-  IAmountData,
   ITransactionRecord,
   SceneContexts,
   TransactionType,
 } from "@/types/app-context.interface";
-import { decrypt } from "@/helpers/decrypt";
-import { encrypt, IEncryptedData } from "@/helpers/encrypt";
+import { encrypt } from "@/helpers/encrypt";
 import {
   getTransactionCategory,
   sanitizeCategory,
@@ -18,6 +16,22 @@ import { Scenario } from "@/scenes/scene.class";
 import { transactionService } from "@/modules/transaction";
 import moment from "moment";
 import { Markup, Scenes } from "telegraf";
+import { parseAmountInput } from "@/helpers/parseAmountInput.helper";
+import { decryptTransactionAmount } from "@/helpers/transactionTotals.helper";
+
+function formatTransactionLine(
+  item: ITransactionRecord,
+  rowIndex: number,
+  page: number,
+): string {
+  const amount = getFixedAmount(decryptTransactionAmount(item.amount));
+  const sign = item.type === "income" ? "+" : "-";
+  const category = getTransactionCategory(item) ?? "No category";
+  const timestamp = moment(item.created_date).format("DD.MM HH:mm");
+  const absoluteIndex = page * ITEMS_PER_PAGE + rowIndex + 1;
+
+  return `${absoluteIndex}. ${sign}${amount} EUR | ${category} | ${timestamp}`;
+}
 
 const ITEMS_PER_PAGE = 5;
 const ACTION_PAGE_PREV = "transactions_prev_page";
@@ -51,49 +65,6 @@ export class TransactionsScene extends Scenario {
     state.targetTransactionId = undefined;
     state.targetTransactionType = undefined;
     state.editMode = undefined;
-  }
-
-  private getNumericAmount(amount: IAmountData["amount"]) {
-    if (typeof amount === "number") {
-      return amount;
-    }
-
-    return Number(decrypt(amount as IEncryptedData));
-  }
-
-  private formatTransactionLine(
-    item: ITransactionRecord,
-    rowIndex: number,
-    page: number,
-  ) {
-    const amount = getFixedAmount(this.getNumericAmount(item.amount));
-    const sign = item.type === "income" ? "+" : "-";
-    const category = getTransactionCategory(item) ?? "No category";
-    const timestamp = moment(item.created_date).format("DD.MM HH:mm");
-    const absoluteIndex = page * ITEMS_PER_PAGE + rowIndex + 1;
-
-    return `${absoluteIndex}. ${sign}${amount} EUR | ${category} | ${timestamp}`;
-  }
-
-  private parseAmountInput(text: string) {
-    const trimmed = text.trim();
-    const match = trimmed.match(
-      /^(\d{1,3}(?:[ \u00A0]\d{3})*|\d+)([.,]\d{1,2})?$/,
-    );
-
-    if (!match) {
-      return null;
-    }
-
-    const integerPart = match[1].replace(/[ \u00A0]/g, "");
-    const decimalPart = match[2] ? `.${match[2].slice(1)}` : "";
-    const amount = Number(`${integerPart}${decimalPart}`);
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return null;
-    }
-
-    return Number(amount.toFixed(2));
   }
 
   private async getPageData(key: string, page: number) {
@@ -239,7 +210,7 @@ export class TransactionsScene extends Scenario {
       items.length === 0
         ? "No transactions yet."
         : items
-            .map((item, idx) => this.formatTransactionLine(item, idx, page))
+            .map((item, idx) => formatTransactionLine(item, idx, page))
             .join("\n");
     const header = `Recent transactions (page ${page + 1}/${totalPages})`;
     const noticeLine = notice ? `${notice}\n\n` : "";
@@ -273,7 +244,7 @@ export class TransactionsScene extends Scenario {
     state.targetTransactionType = type;
     state.editMode = undefined;
 
-    const amount = getFixedAmount(this.getNumericAmount(transaction.amount));
+    const amount = getFixedAmount(decryptTransactionAmount(transaction.amount));
     const sign = transaction.type === "income" ? "+" : "-";
     const category = getTransactionCategory(transaction) ?? "No category";
 
@@ -306,7 +277,7 @@ export class TransactionsScene extends Scenario {
     state.targetTransactionType = type;
     state.editMode = undefined;
 
-    const amount = getFixedAmount(this.getNumericAmount(transaction.amount));
+    const amount = getFixedAmount(decryptTransactionAmount(transaction.amount));
     const sign = transaction.type === "income" ? "+" : "-";
     const category = getTransactionCategory(transaction) ?? "No category";
 
@@ -566,7 +537,7 @@ export class TransactionsScene extends Scenario {
       }
 
       if (state.editMode === "amount") {
-        const parsedAmount = this.parseAmountInput(messageText);
+        const parsedAmount = parseAmountInput(messageText);
 
         if (parsedAmount == null) {
           await this.upsertPanelMessage(

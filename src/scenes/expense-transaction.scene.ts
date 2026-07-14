@@ -12,20 +12,13 @@ import {
   IAmountData,
   SceneContexts,
 } from "@/types/app-context.interface";
-import moment from "moment";
-import "moment-timezone";
 import { containsSlash } from "@/helpers/containsHash.helper";
-import { encrypt, IEncryptedData } from "@/helpers/encrypt";
-import { decrypt } from "@/helpers/decrypt";
+import { encrypt } from "@/helpers/encrypt";
 import * as emoji from "node-emoji";
 import { getFixedAmount } from "@/helpers/getFixedAmount";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
-import { transactionService } from "@/modules/transaction";
-import { getLimitSnapshot } from "@/helpers/limitSnapshot.helper";
-import {
-  encryptNumber,
-  getDecryptedNumber,
-} from "@/helpers/encryptedNumber.helper";
+import { transactionService, computeExpenseLimitResult } from "@/modules/transaction";
+import { getDecryptedNumber } from "@/helpers/encryptedNumber.helper";
 import {
   getTopCategoriesByUsage,
   mergeCategories,
@@ -201,86 +194,36 @@ export class ExpenseTransactionScene extends Scenario {
     };
 
     await transactionService.addExpense(key, transaction);
+
     const [expenses, income] = await Promise.all([
       transactionService.getExpensesByKey(key),
       transactionService.getIncomeByKey(key),
     ]);
-    const totalExpensesToday = this.calculateExpensesToday(expenses);
-    const monthlySavingsGoal = getDecryptedNumber(
-      ctx.session.monthlySavingsGoal,
-    );
-    const monthlyIncome = this.calculateCurrentMonthIncomeTotal(income);
-    const monthlyExpenses = this.calculateCurrentMonthExpenseTotal(expenses);
-    const now = moment();
-    const baseSnapshot =
-      monthlySavingsGoal != null
-        ? getLimitSnapshot({
-            monthlyIncome,
-            monthlyExpenses,
-            monthlySavingsGoal,
-            daysInMonth: now.daysInMonth(),
-            currentDayOfMonth: now.date(),
-          })
-        : null;
-    const baseDailyLimit =
-      baseSnapshot != null ? baseSnapshot.autoDailyLimit : null;
 
-    let savingsGoalExtraDelta = 0;
+    const { totalExpensesToday, dailyLimit, isLimitExceeded, overspentAmount, snapshot, sessionUpdates } =
+      computeExpenseLimitResult({
+        expenses,
+        income,
+        monthlySavingsGoal: getDecryptedNumber(ctx.session.monthlySavingsGoal),
+        savingsGoalCarryoverDate: ctx.session.savingsGoalCarryoverDate,
+        savingsGoalCarryoverAmount: ctx.session.savingsGoalCarryoverAmount,
+        savingsGoalExtraAmount: ctx.session.savingsGoalExtraAmount,
+      });
 
-    if (monthlySavingsGoal != null && baseDailyLimit != null) {
-      const dayKey = now.format("YYYY-MM-DD");
-      const previousAppliedToday =
-        ctx.session.savingsGoalCarryoverDate === dayKey
-          ? (getDecryptedNumber(ctx.session.savingsGoalCarryoverAmount) ?? 0)
-          : 0;
-      const currentSavedToday = Math.max(
-        baseDailyLimit - totalExpensesToday,
-        0,
-      );
-
-      savingsGoalExtraDelta = Number(
-        (currentSavedToday - previousAppliedToday).toFixed(2),
-      );
-
-      if (savingsGoalExtraDelta !== 0) {
-        const currentSavingsGoalExtraAmount =
-          getDecryptedNumber(ctx.session.savingsGoalExtraAmount) ?? 0;
-        const adjustedSavingsGoalExtraAmount = Number(
-          Math.max(
-            currentSavingsGoalExtraAmount + savingsGoalExtraDelta,
-            0,
-          ).toFixed(2),
-        );
-
-        ctx.session.savingsGoalExtraAmount = encryptNumber(
-          adjustedSavingsGoalExtraAmount,
-        );
-      }
-
-      ctx.session.savingsGoalCarryoverDate = dayKey;
-      ctx.session.savingsGoalCarryoverAmount = encryptNumber(currentSavedToday);
+    if (sessionUpdates.savingsGoalExtraAmount !== undefined) {
+      ctx.session.savingsGoalExtraAmount = sessionUpdates.savingsGoalExtraAmount;
+    }
+    if (sessionUpdates.savingsGoalCarryoverDate !== undefined) {
+      ctx.session.savingsGoalCarryoverDate = sessionUpdates.savingsGoalCarryoverDate;
+    }
+    if (sessionUpdates.savingsGoalCarryoverAmount !== undefined) {
+      ctx.session.savingsGoalCarryoverAmount = sessionUpdates.savingsGoalCarryoverAmount;
     }
 
-    const snapshot =
-      monthlySavingsGoal != null
-        ? getLimitSnapshot({
-            monthlyIncome,
-            monthlyExpenses,
-            monthlySavingsGoal,
-            daysInMonth: now.daysInMonth(),
-            currentDayOfMonth: now.date(),
-          })
-        : null;
-    const dailyLimit = snapshot != null ? snapshot.autoDailyLimit : null;
-    const isLimitConfigured = dailyLimit != null;
-    const isLimitExceeded =
-      isLimitConfigured && totalExpensesToday > dailyLimit;
-    const overspentAmount = isLimitExceeded
-      ? totalExpensesToday - dailyLimit
-      : 0;
     const state = this.getState(ctx);
-
     this.resetState(state);
+
+    const isLimitConfigured = dailyLimit != null;
 
     const limitStatusLine = !isLimitConfigured
       ? `Use /${COMMAND_NAMES.SAVINGS_GOAL} <monthly-goal> to configure today's limit.`
@@ -516,54 +459,5 @@ export class ExpenseTransactionScene extends Scenario {
 
       await this.showCategoryPicker(ctx, key, parsedInput.amount);
     });
-  }
-
-  calculateExpensesLastHour(expenses: IAmountData[]) {
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-    const lastHourExpenses = expenses.filter(
-      (expense) => new Date(expense.created_date) > oneHourAgo,
-    );
-    return lastHourExpenses.reduce(
-      (total, expense) =>
-        total + Number(decrypt(expense.amount as IEncryptedData)),
-      0,
-    );
-  }
-
-  calculateExpensesToday(expenses: IAmountData[]) {
-    const today = moment();
-    const todayExpenses = expenses.filter((expense) =>
-      moment(expense.created_date).isSame(today, "day"),
-    );
-
-    return todayExpenses.reduce(
-      (total, expense) =>
-        total + Number(decrypt(expense.amount as IEncryptedData)),
-      0,
-    );
-  }
-
-  calculateCurrentMonthIncomeTotal(incomeTransactions: IAmountData[]) {
-    const now = moment();
-    const currentMonthIncome = incomeTransactions.filter((item) =>
-      moment(item.created_date).isSame(now, "month"),
-    );
-
-    return currentMonthIncome.reduce(
-      (total, item) => total + Number(decrypt(item.amount as IEncryptedData)),
-      0,
-    );
-  }
-
-  calculateCurrentMonthExpenseTotal(expenses: IAmountData[]) {
-    const now = moment();
-    const currentMonthExpenses = expenses.filter((item) =>
-      moment(item.created_date).isSame(now, "month"),
-    );
-
-    return currentMonthExpenses.reduce(
-      (total, item) => total + Number(decrypt(item.amount as IEncryptedData)),
-      0,
-    );
   }
 }

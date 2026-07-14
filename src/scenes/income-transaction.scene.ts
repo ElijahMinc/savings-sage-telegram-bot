@@ -11,16 +11,15 @@ import {
   IAmountData,
   SceneContexts,
 } from "@/types/app-context.interface";
-import moment from "moment";
 import "moment-timezone";
 import { containsSlash } from "@/helpers/containsHash.helper";
-import { encrypt, IEncryptedData } from "@/helpers/encrypt";
-import { decrypt } from "@/helpers/decrypt";
+import { encrypt } from "@/helpers/encrypt";
 import { containsStrictNumber } from "@/helpers/containsStrictNumber.helper";
 import * as emoji from "node-emoji";
 import { getFixedAmount } from "@/helpers/getFixedAmount";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
 import { transactionService } from "@/modules/transaction";
+import { sumTransactionsForDay } from "@/helpers/transactionTotals.helper";
 
 enum TRANSACTION_COMMANDS {
   CHOOSE_CATEGORY = "CHOOSE_CATEGORY",
@@ -237,7 +236,7 @@ ${emoji.get("small_red_triangle_down")} Press Exit button to leave;`,
 
       await transactionService.addIncome(key, transaction);
       const income = await transactionService.getIncomeByKey(key);
-      const totalIncomeToday = this.calculateIncomeToday(income);
+      const totalIncomeToday = sumTransactionsForDay(income);
       const monospaceTransactionId = "`" + transaction.id + "`";
 
       await ctx.replyWithMarkdown(
@@ -270,15 +269,4 @@ ${emoji.get("label")} Category: *${state.chosenCategory}*`,
     });
   }
 
-  calculateIncomeToday(incomeTransactions: IAmountData[]) {
-    const today = moment();
-    const todayIncome = incomeTransactions.filter((item) =>
-      moment(item.created_date).isSame(today, "day"),
-    );
-
-    return todayIncome.reduce(
-      (total, item) => total + Number(decrypt(item.amount as IEncryptedData)),
-      0,
-    );
-  }
 }
