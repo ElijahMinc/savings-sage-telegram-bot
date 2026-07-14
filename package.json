@@ -57,7 +57,6 @@
     "@commands": "src/commands",
     "@services": "src/services",
     "@config": "src/config",
-    "@context": "src/context",
     "@server": "src/server",
     "@scenes": "src/scenes",
     "@helpers": "src/helpers",

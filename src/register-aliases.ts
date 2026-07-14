@@ -9,7 +9,6 @@ moduleAlias.addAliases({
   "@commands": path.join(rootDir, "commands"),
   "@services": path.join(rootDir, "services"),
   "@config": path.join(rootDir, "config"),
-  "@context": path.join(rootDir, "context"),
   "@server": path.join(rootDir, "server"),
   "@scenes": path.join(rootDir, "scenes"),
   "@middlewares": path.join(rootDir, "middlewares"),

@@ -32,7 +32,6 @@
       "@/*": ["./src/*"],
       "@commands/*": ["./src/commands/*"],
       "@config/*": ["./src/config/*"],
-      "@context/*": ["./src/context/*"],
       "@services/*": ["./src/services/*"],
       "@server/*": ["./src/server/*"],
       "@scenes/*": ["./src/scenes/*"],
