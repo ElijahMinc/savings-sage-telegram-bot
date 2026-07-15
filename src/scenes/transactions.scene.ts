@@ -4,27 +4,24 @@ import {
   SceneContexts,
   TransactionType,
 } from "@/types/app-context.interface";
-import { encrypt } from "@/helpers/encrypt";
 import {
   getTransactionCategory,
   sanitizeCategory,
 } from "@/helpers/categoryOptions.helper";
 import { containsSlash } from "@/helpers/containsHash.helper";
-import { getFixedAmount } from "@/helpers/getFixedAmount";
+import { formatCents, toCents } from "@/helpers/money.helper";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
 import { Scenario } from "@/scenes/scene.class";
 import { transactionService } from "@/modules/transaction";
 import { format } from "date-fns";
 import { Markup, Scenes } from "telegraf";
-import { parseAmountInput } from "@/helpers/parseAmountInput.helper";
-import { decryptTransactionAmount } from "@/helpers/transactionTotals.helper";
 
 function formatTransactionLine(
   item: ITransactionRecord,
   rowIndex: number,
   page: number,
 ): string {
-  const amount = getFixedAmount(decryptTransactionAmount(item.amount));
+  const amount = formatCents(item.amount);
   const sign = item.type === "income" ? "+" : "-";
   const category = getTransactionCategory(item) ?? "No category";
   const timestamp = format(new Date(item.created_date), "dd.MM HH:mm");
@@ -244,7 +241,7 @@ export class TransactionsScene extends Scenario {
     state.targetTransactionType = type;
     state.editMode = undefined;
 
-    const amount = getFixedAmount(decryptTransactionAmount(transaction.amount));
+    const amount = formatCents(transaction.amount);
     const sign = transaction.type === "income" ? "+" : "-";
     const category = getTransactionCategory(transaction) ?? "No category";
 
@@ -277,7 +274,7 @@ export class TransactionsScene extends Scenario {
     state.targetTransactionType = type;
     state.editMode = undefined;
 
-    const amount = getFixedAmount(decryptTransactionAmount(transaction.amount));
+    const amount = formatCents(transaction.amount);
     const sign = transaction.type === "income" ? "+" : "-";
     const category = getTransactionCategory(transaction) ?? "No category";
 
@@ -294,17 +291,11 @@ export class TransactionsScene extends Scenario {
     id: number,
     amount: number,
   ) {
-    const encryptedAmount = encrypt(getFixedAmount(amount));
-
     if (type === "income") {
-      return await transactionService.updateIncomeById(key, id, {
-        amount: encryptedAmount,
-      });
+      return await transactionService.updateIncomeById(key, id, { amount });
     }
 
-    return await transactionService.updateExpenseById(key, id, {
-      amount: encryptedAmount,
-    });
+    return await transactionService.updateExpenseById(key, id, { amount });
   }
 
   private async updateTransactionCategory(
@@ -537,9 +528,9 @@ export class TransactionsScene extends Scenario {
       }
 
       if (state.editMode === "amount") {
-        const parsedAmount = parseAmountInput(messageText);
+        const parsedAmountCents = toCents(messageText);
 
-        if (parsedAmount == null) {
+        if (parsedAmountCents == null || parsedAmountCents <= 0) {
           await this.upsertPanelMessage(
             ctx,
             "Invalid amount. Enter number (for example: 450, 450.50, 450,50).",
@@ -552,7 +543,7 @@ export class TransactionsScene extends Scenario {
           key,
           state.targetTransactionType,
           state.targetTransactionId,
-          parsedAmount,
+          parsedAmountCents,
         );
 
         await this.renderList(

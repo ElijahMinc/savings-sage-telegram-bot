@@ -1,12 +1,23 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { IBotContext, SessionData } from "@/types/app-context.interface";
-import {
-  encryptNumber,
-  getDecryptedNumber,
-} from "@/helpers/encryptedNumber.helper";
 import { isValidReminderTimezone } from "@/helpers/reminderSchedule.helper";
 
 const defaultSessionData = (): SessionData => ({});
+
+const sanitizeAmount = (
+  value: unknown,
+  { allowZero }: { allowZero: boolean },
+): number | undefined => {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
+
+  if (allowZero ? value < 0 : value <= 0) {
+    return undefined;
+  }
+
+  return value;
+};
 
 export const defaultSessionMiddleware =
   () => async (ctx: IBotContext, next: () => Promise<void>) => {
@@ -20,69 +31,24 @@ export const defaultSessionMiddleware =
     delete (ctx.session as any).incomeTags;
     delete (ctx.session as any).mode;
 
-    const monthlySavingsGoal = getDecryptedNumber(
+    ctx.session.monthlySavingsGoal = sanitizeAmount(
       ctx.session.monthlySavingsGoal,
+      { allowZero: false },
     );
-    if (ctx.session.monthlySavingsGoal != null && monthlySavingsGoal == null) {
-      ctx.session.monthlySavingsGoal = undefined;
-    } else if (monthlySavingsGoal != null && monthlySavingsGoal <= 0) {
-      ctx.session.monthlySavingsGoal = undefined;
-    } else if (
-      typeof ctx.session.monthlySavingsGoal === "number" &&
-      monthlySavingsGoal != null
-    ) {
-      // Migrate legacy plaintext sessions to encrypted values.
-      ctx.session.monthlySavingsGoal = encryptNumber(monthlySavingsGoal);
-    }
-
-    const savingsGoalExtraAmount = getDecryptedNumber(
+    ctx.session.savingsGoalExtraAmount = sanitizeAmount(
       ctx.session.savingsGoalExtraAmount,
+      { allowZero: true },
     );
-    if (
-      ctx.session.savingsGoalExtraAmount != null &&
-      savingsGoalExtraAmount == null
-    ) {
-      ctx.session.savingsGoalExtraAmount = undefined;
-    } else if (savingsGoalExtraAmount != null && savingsGoalExtraAmount < 0) {
-      ctx.session.savingsGoalExtraAmount = undefined;
-    } else if (
-      typeof ctx.session.savingsGoalExtraAmount === "number" &&
-      savingsGoalExtraAmount != null
-    ) {
-      // Migrate legacy plaintext sessions to encrypted values.
-      ctx.session.savingsGoalExtraAmount = encryptNumber(
-        savingsGoalExtraAmount,
-      );
-    }
+    ctx.session.savingsGoalCarryoverAmount = sanitizeAmount(
+      ctx.session.savingsGoalCarryoverAmount,
+      { allowZero: true },
+    );
 
     if (
       ctx.session.savingsGoalCarryoverDate != null &&
       typeof ctx.session.savingsGoalCarryoverDate !== "string"
     ) {
       ctx.session.savingsGoalCarryoverDate = undefined;
-    }
-
-    const savingsGoalCarryoverAmount = getDecryptedNumber(
-      ctx.session.savingsGoalCarryoverAmount,
-    );
-    if (
-      ctx.session.savingsGoalCarryoverAmount != null &&
-      savingsGoalCarryoverAmount == null
-    ) {
-      ctx.session.savingsGoalCarryoverAmount = undefined;
-    } else if (
-      savingsGoalCarryoverAmount != null &&
-      savingsGoalCarryoverAmount < 0
-    ) {
-      ctx.session.savingsGoalCarryoverAmount = undefined;
-    } else if (
-      typeof ctx.session.savingsGoalCarryoverAmount === "number" &&
-      savingsGoalCarryoverAmount != null
-    ) {
-      // Migrate legacy plaintext sessions to encrypted values.
-      ctx.session.savingsGoalCarryoverAmount = encryptNumber(
-        savingsGoalCarryoverAmount,
-      );
     }
 
     if (

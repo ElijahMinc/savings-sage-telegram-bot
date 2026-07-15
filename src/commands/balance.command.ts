@@ -4,9 +4,8 @@ import { Command } from "./command.class";
 import { COMMAND_NAMES } from "@/constants";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
 import { transactionService } from "@/modules/transaction";
-import { getFixedAmount } from "@/helpers/getFixedAmount";
+import { formatCents } from "@/helpers/money.helper";
 import { getDaysInMonth } from "date-fns";
-import { getDecryptedNumber } from "@/helpers/encryptedNumber.helper";
 import { getLimitSnapshot } from "@/helpers/limitSnapshot.helper";
 import {
   sumTransactionsForDay,
@@ -36,9 +35,7 @@ export class BalanceCommand extends Command {
       const spentToday = sumTransactionsForDay(expenses);
       const monthlyIncome = sumTransactionsForMonth(income);
       const monthlyExpenses = sumTransactionsForMonth(expenses);
-      const monthlySavingsGoal = getDecryptedNumber(
-        ctx.session.monthlySavingsGoal,
-      );
+      const monthlySavingsGoal = ctx.session.monthlySavingsGoal;
       const now = new Date();
       const dailyLimitSnapshot =
         monthlySavingsGoal != null
@@ -54,17 +51,17 @@ export class BalanceCommand extends Command {
         dailyLimitSnapshot != null ? dailyLimitSnapshot.autoDailyLimit : null;
       const todayLine =
         amountPerDay != null
-          ? `Today: ${getFixedAmount(spentToday)} / ${getFixedAmount(amountPerDay)} EUR`
-          : `Today: ${getFixedAmount(spentToday)} EUR`;
+          ? `Today: ${formatCents(spentToday)} / ${formatCents(amountPerDay)} EUR`
+          : `Today: ${formatCents(spentToday)} EUR`;
 
       const overspendAmount = monthlyExpenses - monthlyIncome;
       const savingsGoalLine =
         monthlySavingsGoal != null
-          ? `${getFixedAmount(monthlySavingsGoal)} EUR`
+          ? `${formatCents(monthlySavingsGoal)} EUR`
           : `Not set. Use /${COMMAND_NAMES.SAVINGS_GOAL} <monthly_savings_goal>.`;
       const monthBalanceWithSavingsGoalLine =
         monthlySavingsGoal != null
-          ? `${getFixedAmount(monthlyIncome - monthlyExpenses - monthlySavingsGoal)} EUR`
+          ? `${formatCents(monthlyIncome - monthlyExpenses - monthlySavingsGoal)} EUR`
           : `Not available. Set /${COMMAND_NAMES.SAVINGS_GOAL} <monthly_savings_goal>.`;
 
       const message =
@@ -73,8 +70,8 @@ export class BalanceCommand extends Command {
 
 ${todayLine}
 
-${emoji.get("warning")} Over budget by ${getFixedAmount(overspendAmount)} EUR
-(Income ${getFixedAmount(monthlyIncome)} / Expenses ${getFixedAmount(monthlyExpenses)})
+${emoji.get("warning")} Over budget by ${formatCents(overspendAmount)} EUR
+(Income ${formatCents(monthlyIncome)} / Expenses ${formatCents(monthlyExpenses)})
 
 Month balance (with savings goal): ${monthBalanceWithSavingsGoalLine}
 
@@ -83,8 +80,8 @@ Savings goal: ${savingsGoalLine}`
 
 ${todayLine}
 
-Month balance: ${getFixedAmount(monthlyIncome - monthlyExpenses)} EUR ${emoji.get("white_check_mark")}
-(${getFixedAmount(monthlyIncome)} in / ${getFixedAmount(monthlyExpenses)} out)
+Month balance: ${formatCents(monthlyIncome - monthlyExpenses)} EUR ${emoji.get("white_check_mark")}
+(${formatCents(monthlyIncome)} in / ${formatCents(monthlyExpenses)} out)
 
 Month balance (with savings goal): ${monthBalanceWithSavingsGoalLine}
 

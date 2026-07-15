@@ -1,4 +1,3 @@
-import { IEncryptedData } from "@/helpers/encrypt";
 import { Context, Scenes } from "telegraf";
 import type { SceneContext } from "telegraf/scenes";
 
@@ -9,7 +8,7 @@ export enum CURRENCIES {
 }
 
 interface ExpenseTransactionScene extends Scenes.SceneSessionData {
-  pendingAmount?: number;
+  pendingAmountCents?: number;
   pendingAmountLabel?: string;
   pendingCategories?: string[];
   awaitingCustomCategory?: boolean;
@@ -30,7 +29,7 @@ interface TransactionsScene extends Scenes.SceneSessionData {
 export interface IAmountData {
   id: number;
   category: string;
-  amount: IEncryptedData | number;
+  amount: number;
   currency: string;
   created_date: Date;
 }
@@ -43,10 +42,10 @@ export interface ITransactionRecord extends IAmountData {
 }
 
 export interface SessionData {
-  monthlySavingsGoal?: IEncryptedData | number;
-  savingsGoalExtraAmount?: IEncryptedData | number;
+  monthlySavingsGoal?: number;
+  savingsGoalExtraAmount?: number;
   savingsGoalCarryoverDate?: string;
-  savingsGoalCarryoverAmount?: IEncryptedData | number;
+  savingsGoalCarryoverAmount?: number;
   timezone?: string;
 }
 

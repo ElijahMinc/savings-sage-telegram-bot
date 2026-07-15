@@ -2,9 +2,8 @@
 import { IAmountData } from "@/types/app-context.interface";
 import { filterDataForDateRange } from "@/helpers/filterDataForDateRange";
 import { formatDate } from "@/helpers/formatDate.helper";
-import { getFixedAmount } from "@/helpers/getFixedAmount";
+import { formatCents } from "@/helpers/money.helper";
 import { getTransactionDateFormat } from "@/helpers/getTransactionDateFormat";
-import { decryptTransactionAmount } from "@/helpers/transactionTotals.helper";
 import { format, isSameDay, isSameMonth } from "date-fns";
 import { Stream } from "stream";
 import XLSX from "xlsx";
@@ -38,18 +37,17 @@ class XLMXService {
 
     let total = 0;
     const transformedData = filteredData.map((item) => {
-      const amount = decryptTransactionAmount(item.amount);
-      total += amount;
+      total += item.amount;
 
       return {
         id: item.id,
-        amount: getFixedAmount(amount),
+        amount: formatCents(item.amount),
         category: item.category,
         created_date: formatDate(item.created_date),
         currency: item.currency,
       };
     });
-    transformedData.push({ id: "Total", amount: getFixedAmount(total) } as any);
+    transformedData.push({ id: "Total", amount: formatCents(total) } as any);
 
     const ws = XLSX.utils.json_to_sheet(transformedData);
 
@@ -120,7 +118,7 @@ class XLMXService {
           formatDate(item.created_date),
           "Income",
           item.category || "Other",
-          `+${getFixedAmount(decryptTransactionAmount(item.amount))}`,
+          `+${formatCents(item.amount)}`,
           item.currency,
         ],
       })),
@@ -130,18 +128,18 @@ class XLMXService {
           formatDate(item.created_date),
           "Expense",
           item.category || "Other",
-          `-${getFixedAmount(decryptTransactionAmount(item.amount))}`,
+          `-${formatCents(item.amount)}`,
           item.currency,
         ],
       })),
     ].sort((a, b) => a.createdDate - b.createdDate);
 
     const totalExpenses = expenses.reduce(
-      (acc, item) => acc + decryptTransactionAmount(item.amount),
+      (acc, item) => acc + item.amount,
       0,
     );
     const totalIncome = income.reduce(
-      (acc, item) => acc + decryptTransactionAmount(item.amount),
+      (acc, item) => acc + item.amount,
       0,
     );
     const net = totalIncome - totalExpenses;
@@ -153,8 +151,7 @@ class XLMXService {
     const groupedExpenseCategories = expenses.reduce<Map<string, number>>(
       (acc, item) => {
         const key = item.category?.trim() || "Other";
-        const amount = decryptTransactionAmount(item.amount);
-        acc.set(key, (acc.get(key) ?? 0) + amount);
+        acc.set(key, (acc.get(key) ?? 0) + item.amount);
         return acc;
       },
       new Map<string, number>(),
@@ -165,25 +162,25 @@ class XLMXService {
 
     const savingsGoalValue =
       monthlySavingsGoal != null
-        ? `${getFixedAmount(monthlySavingsGoal)} EUR`
+        ? `${formatCents(monthlySavingsGoal)} EUR`
         : "not set";
-    const currentSurplusValue = `${getFixedAmount(net)} EUR`;
+    const currentSurplusValue = `${formatCents(net)} EUR`;
     const goalStatusValue =
       monthlySavingsGoal == null
         ? "not set"
         : net >= monthlySavingsGoal
           ? "ACHIEVED ✅"
-          : `REMAINING ${getFixedAmount(monthlySavingsGoal - net)} EUR`;
+          : `REMAINING ${formatCents(monthlySavingsGoal - net)} EUR`;
 
     const rows: (string | number)[][] = [
       ["Date", "Type", "Category", "Amount", "Currency"],
       ...transactionRows.map((item) => item.row),
       [],
       ["--- SUMMARY ---"],
-      ["TOTAL INCOME:", `${getFixedAmount(totalIncome)} EUR`],
-      ["TOTAL EXPENSES:", `${getFixedAmount(totalExpenses)} EUR`],
+      ["TOTAL INCOME:", `${formatCents(totalIncome)} EUR`],
+      ["TOTAL EXPENSES:", `${formatCents(totalExpenses)} EUR`],
       ["--------------------------------"],
-      ["NET RESULT:", `${getFixedAmount(net)} EUR`],
+      ["NET RESULT:", `${formatCents(net)} EUR`],
       [],
       ["Expenses / Income:", expenseIncomePercent],
       [],
@@ -196,7 +193,7 @@ class XLMXService {
         const percent =
           totalExpenses > 0 ? Math.round((amount / totalExpenses) * 100) : 0;
         rows.push([
-          `${index + 1}. ${category} - ${getFixedAmount(amount)} EUR (${percent}%)`,
+          `${index + 1}. ${category} - ${formatCents(amount)} EUR (${percent}%)`,
         ]);
       });
     } else {

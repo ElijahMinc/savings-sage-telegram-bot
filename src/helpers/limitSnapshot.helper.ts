@@ -27,7 +27,10 @@ export const getLimitSnapshot = (input: {
   const displayRemainingExpenseBudget = isIncomeExceeded
     ? remainingIncomeBalance
     : remainingExpenseBudget;
-  const autoDailyLimit = Math.max(remainingExpenseBudget / remainingDays, 0);
+  const autoDailyLimit = Math.max(
+    Math.floor(remainingExpenseBudget / remainingDays),
+    0,
+  );
 
   return {
     remainingDays,

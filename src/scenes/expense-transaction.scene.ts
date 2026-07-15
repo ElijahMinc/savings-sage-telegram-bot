@@ -13,12 +13,10 @@ import {
   SceneContexts,
 } from "@/types/app-context.interface";
 import { containsSlash } from "@/helpers/containsHash.helper";
-import { encrypt } from "@/helpers/encrypt";
 import * as emoji from "node-emoji";
-import { getFixedAmount } from "@/helpers/getFixedAmount";
+import { formatCents, toCents } from "@/helpers/money.helper";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
 import { transactionService, computeExpenseLimitResult } from "@/modules/transaction";
-import { getDecryptedNumber } from "@/helpers/encryptedNumber.helper";
 import {
   getTopCategoriesByUsage,
   mergeCategories,
@@ -31,12 +29,12 @@ enum TRANSACTION_COMMANDS {
 }
 
 interface IExpenseInput {
-  amount: number;
+  amountCents: number;
   category?: string;
 }
 
 interface IExpenseSceneState {
-  pendingAmount?: number;
+  pendingAmountCents?: number;
   pendingAmountLabel?: string;
   pendingCategories?: string[];
   awaitingCustomCategory?: boolean;
@@ -64,14 +62,14 @@ export class ExpenseTransactionScene extends Scenario {
   }
 
   private resetState(state: IExpenseSceneState) {
-    state.pendingAmount = undefined;
+    state.pendingAmountCents = undefined;
     state.pendingAmountLabel = undefined;
     state.pendingCategories = undefined;
     state.awaitingCustomCategory = false;
   }
 
-  private formatAmountForPrompt(amount: number) {
-    const fixed = getFixedAmount(amount);
+  private formatAmountForPrompt(amountCents: number) {
+    const fixed = formatCents(amountCents);
     const [integerPart, decimalPart] = fixed.split(".");
     const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 
@@ -97,18 +95,16 @@ export class ExpenseTransactionScene extends Scenario {
       return null;
     }
 
-    const integerPart = match[1].replace(/[ \u00A0]/g, "");
-    const decimalPart = match[2] ? `.${match[2].slice(1)}` : "";
-    const amount = Number(`${integerPart}${decimalPart}`);
+    const amountCents = toCents(`${match[1]}${match[2] ?? ""}`);
 
-    if (!Number.isFinite(amount) || amount <= 0) {
+    if (amountCents == null || amountCents <= 0) {
       return null;
     }
 
     const category = sanitizeCategory(match[3]);
 
     return {
-      amount: Number(amount.toFixed(2)),
+      amountCents,
       ...(category ? { category } : {}),
     };
   }
@@ -155,14 +151,14 @@ export class ExpenseTransactionScene extends Scenario {
   private async showCategoryPicker(
     ctx: SceneContexts<"ExpenseTransactionScene">,
     key: string,
-    amount: number,
+    amountCents: number,
   ) {
     const state = this.getState(ctx);
     const recentCategories = await this.getRecentCategories(key);
     const categories = this.getCategoriesForPicker(recentCategories);
-    const amountLabel = this.formatAmountForPrompt(amount);
+    const amountLabel = this.formatAmountForPrompt(amountCents);
 
-    state.pendingAmount = amount;
+    state.pendingAmountCents = amountCents;
     state.pendingAmountLabel = amountLabel;
     state.pendingCategories = categories;
     state.awaitingCustomCategory = false;
@@ -175,7 +171,7 @@ export class ExpenseTransactionScene extends Scenario {
 
   private async saveExpenseTransaction(
     ctx: SceneContexts<"ExpenseTransactionScene">,
-    amount: number,
+    amountCents: number,
     category: string,
   ) {
     const key = getSessionKeyFromContext(ctx);
@@ -187,7 +183,7 @@ export class ExpenseTransactionScene extends Scenario {
 
     const transaction: IAmountData = {
       id: Date.now(),
-      amount: encrypt(getFixedAmount(amount)),
+      amount: amountCents,
       category,
       created_date: new Date(),
       currency: CURRENCIES.EURO,
@@ -204,7 +200,7 @@ export class ExpenseTransactionScene extends Scenario {
       computeExpenseLimitResult({
         expenses,
         income,
-        monthlySavingsGoal: getDecryptedNumber(ctx.session.monthlySavingsGoal),
+        monthlySavingsGoal: ctx.session.monthlySavingsGoal,
         savingsGoalCarryoverDate: ctx.session.savingsGoalCarryoverDate,
         savingsGoalCarryoverAmount: ctx.session.savingsGoalCarryoverAmount,
         savingsGoalExtraAmount: ctx.session.savingsGoalExtraAmount,
@@ -228,12 +224,12 @@ export class ExpenseTransactionScene extends Scenario {
     const limitStatusLine = !isLimitConfigured
       ? `Use /${COMMAND_NAMES.SAVINGS_GOAL} <monthly-goal> to configure today's limit.`
       : isLimitExceeded
-        ? `${emoji.get("warning")} ${getFixedAmount(overspentAmount)} ${CURRENCIES.EURO} over today's limit`
-        : `Today: ${getFixedAmount(totalExpensesToday)} / ${getFixedAmount(dailyLimit)} ${CURRENCIES.EURO}`;
+        ? `${emoji.get("warning")} ${formatCents(overspentAmount)} ${CURRENCIES.EURO} over today's limit`
+        : `Today: ${formatCents(totalExpensesToday)} / ${formatCents(dailyLimit)} ${CURRENCIES.EURO}`;
 
     const monthProgressLine =
       snapshot != null
-        ? `Available this month: ${getFixedAmount(snapshot.displayRemainingExpenseBudget)} ${CURRENCIES.EURO}`
+        ? `Available this month: ${formatCents(snapshot.displayRemainingExpenseBudget)} ${CURRENCIES.EURO}`
         : `Available this month: Set /${COMMAND_NAMES.SAVINGS_GOAL} <monthly-goal>.`;
     const incomeExceededLine =
       snapshot != null && snapshot.isIncomeExceeded
@@ -248,7 +244,7 @@ export class ExpenseTransactionScene extends Scenario {
       snapshot != null && snapshot.isIncomeExceeded ? "\n\n" : "\n";
 
     await ctx.reply(
-      `-${getFixedAmount(amount)} ${CURRENCIES.EURO} — ${categoryLabel}${categoryToStatusSeparator}${limitStatusLine}${statusToMonthSeparator}${monthProgressLine}${incomeExceededLine}`,
+      `-${formatCents(amountCents)} ${CURRENCIES.EURO} — ${categoryLabel}${categoryToStatusSeparator}${limitStatusLine}${statusToMonthSeparator}${monthProgressLine}${incomeExceededLine}`,
       Markup.inlineKeyboard([
         [
           Markup.button.callback(
@@ -294,7 +290,7 @@ export class ExpenseTransactionScene extends Scenario {
 
       const state = this.getState(ctx);
 
-      if (state.pendingAmount == null) {
+      if (state.pendingAmountCents == null) {
         await this.promptForAmount(ctx, "Enter the expense amount first.");
         return;
       }
@@ -316,7 +312,7 @@ export class ExpenseTransactionScene extends Scenario {
 
         const state = this.getState(ctx);
 
-        if (state.pendingAmount == null || !state.pendingCategories?.length) {
+        if (state.pendingAmountCents == null || !state.pendingCategories?.length) {
           await this.promptForAmount(ctx, "Enter the expense amount first.");
           return;
         }
@@ -332,11 +328,11 @@ export class ExpenseTransactionScene extends Scenario {
             return;
           }
 
-          await this.showCategoryPicker(ctx, key, state.pendingAmount);
+          await this.showCategoryPicker(ctx, key, state.pendingAmountCents);
           return;
         }
 
-        await this.saveExpenseTransaction(ctx, state.pendingAmount, category);
+        await this.saveExpenseTransaction(ctx, state.pendingAmountCents, category);
       },
     );
 
@@ -417,7 +413,7 @@ export class ExpenseTransactionScene extends Scenario {
 
       const state = this.getState(ctx);
 
-      if (state.awaitingCustomCategory && state.pendingAmount != null) {
+      if (state.awaitingCustomCategory && state.pendingAmountCents != null) {
         const customCategory = sanitizeCategory(messageText);
 
         if (!customCategory) {
@@ -432,7 +428,7 @@ export class ExpenseTransactionScene extends Scenario {
 
         await this.saveExpenseTransaction(
           ctx,
-          state.pendingAmount,
+          state.pendingAmountCents,
           customCategory,
         );
         return;
@@ -451,13 +447,13 @@ export class ExpenseTransactionScene extends Scenario {
       if (parsedInput.category) {
         await this.saveExpenseTransaction(
           ctx,
-          parsedInput.amount,
+          parsedInput.amountCents,
           parsedInput.category,
         );
         return;
       }
 
-      await this.showCategoryPicker(ctx, key, parsedInput.amount);
+      await this.showCategoryPicker(ctx, key, parsedInput.amountCents);
     });
   }
 }

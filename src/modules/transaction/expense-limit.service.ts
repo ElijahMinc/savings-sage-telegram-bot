@@ -2,20 +2,14 @@ import { format, getDaysInMonth } from "date-fns";
 import { IAmountData } from "@/types/app-context.interface";
 import { getLimitSnapshot, ILimitSnapshot } from "@/helpers/limitSnapshot.helper";
 import {
-  SessionEncryptedNumber,
-  getDecryptedNumber,
-  encryptNumber,
-} from "@/helpers/encryptedNumber.helper";
-import { IEncryptedData } from "@/helpers/encrypt";
-import {
   sumTransactionsForDay,
   sumTransactionsForMonth,
 } from "@/helpers/transactionTotals.helper";
 
 export interface IExpenseLimitSessionUpdates {
-  savingsGoalExtraAmount?: IEncryptedData;
+  savingsGoalExtraAmount?: number;
   savingsGoalCarryoverDate?: string;
-  savingsGoalCarryoverAmount?: IEncryptedData;
+  savingsGoalCarryoverAmount?: number;
 }
 
 export interface IExpenseLimitResult {
@@ -32,8 +26,8 @@ export function computeExpenseLimitResult(input: {
   income: IAmountData[];
   monthlySavingsGoal: number | null | undefined;
   savingsGoalCarryoverDate?: string;
-  savingsGoalCarryoverAmount?: SessionEncryptedNumber;
-  savingsGoalExtraAmount?: SessionEncryptedNumber;
+  savingsGoalCarryoverAmount?: number;
+  savingsGoalExtraAmount?: number;
 }): IExpenseLimitResult {
   const now = new Date();
   const totalExpensesToday = sumTransactionsForDay(input.expenses, now);
@@ -59,29 +53,21 @@ export function computeExpenseLimitResult(input: {
     const dayKey = format(now, "yyyy-MM-dd");
     const previousAppliedToday =
       input.savingsGoalCarryoverDate === dayKey
-        ? (getDecryptedNumber(input.savingsGoalCarryoverAmount) ?? 0)
+        ? (input.savingsGoalCarryoverAmount ?? 0)
         : 0;
     const currentSavedToday = Math.max(dailyLimit - totalExpensesToday, 0);
-    const savingsGoalExtraDelta = Number(
-      (currentSavedToday - previousAppliedToday).toFixed(2),
-    );
+    const savingsGoalExtraDelta = currentSavedToday - previousAppliedToday;
 
     if (savingsGoalExtraDelta !== 0) {
-      const currentSavingsGoalExtraAmount =
-        getDecryptedNumber(input.savingsGoalExtraAmount) ?? 0;
-      const adjustedSavingsGoalExtraAmount = Number(
-        Math.max(
-          currentSavingsGoalExtraAmount + savingsGoalExtraDelta,
-          0,
-        ).toFixed(2),
-      );
-      sessionUpdates.savingsGoalExtraAmount = encryptNumber(
-        adjustedSavingsGoalExtraAmount,
+      const currentSavingsGoalExtraAmount = input.savingsGoalExtraAmount ?? 0;
+      sessionUpdates.savingsGoalExtraAmount = Math.max(
+        currentSavingsGoalExtraAmount + savingsGoalExtraDelta,
+        0,
       );
     }
 
     sessionUpdates.savingsGoalCarryoverDate = dayKey;
-    sessionUpdates.savingsGoalCarryoverAmount = encryptNumber(currentSavedToday);
+    sessionUpdates.savingsGoalCarryoverAmount = currentSavedToday;
   }
 
   const isLimitExceeded = dailyLimit != null && totalExpensesToday > dailyLimit;

@@ -9,13 +9,11 @@ import {
   resolveReminderTimezone,
 } from "@/helpers/reminderSchedule.helper";
 import { expenseReminderRepository } from "./expense-reminder.repository";
-import { getFixedAmount } from "@/helpers/getFixedAmount";
+import { formatCents } from "@/helpers/money.helper";
 import { IAmountData } from "@/types/app-context.interface";
 import { getLimitSnapshot } from "@/helpers/limitSnapshot.helper";
-import { decryptTransactionAmount } from "@/helpers/transactionTotals.helper";
 import { transactionService } from "@/modules/transaction";
 import { sessionsService } from "@/services/SessionService";
-import { getDecryptedNumber } from "@/helpers/encryptedNumber.helper";
 import { xlmxService } from "@/services/XLMX.service";
 import { ObjectId } from "mongodb";
 import { IMessageSender } from "@/types/reminder-sender.interface";
@@ -134,7 +132,7 @@ class ExpenseReminderService {
         return total;
       }
 
-      return total + decryptTransactionAmount(item.amount);
+      return total + item.amount;
     }, 0);
   }
 
@@ -152,7 +150,7 @@ class ExpenseReminderService {
         return sum;
       }
 
-      return sum + decryptTransactionAmount(expense.amount);
+      return sum + expense.amount;
     }, 0);
 
     return total / 7;
@@ -301,14 +299,14 @@ class ExpenseReminderService {
 
     if (realMonthlyBalance < 0) {
       return (
-        `Today: ${getFixedAmount(input.total)} EUR (${input.transactionCount} transactions)\n\n` +
+        `Today: ${formatCents(input.total)} EUR (${input.transactionCount} transactions)\n\n` +
         `⚠️ You are overspending your income\n` +
-        `Balance: ${getFixedAmount(realMonthlyBalance)} EUR\n` +
-        `(Income ${getFixedAmount(input.monthlyIncome)} / Expenses ${getFixedAmount(input.monthlyExpenses)})`
+        `Balance: ${formatCents(realMonthlyBalance)} EUR\n` +
+        `(Income ${formatCents(input.monthlyIncome)} / Expenses ${formatCents(input.monthlyExpenses)})`
       );
     }
 
-    return `Daily reminder: ${getFixedAmount(input.total)} EUR spent today (${input.transactionCount} transactions).`;
+    return `Daily reminder: ${formatCents(input.total)} EUR spent today (${input.transactionCount} transactions).`;
   }
 
   private getReminderSummary(input: {
@@ -320,11 +318,11 @@ class ExpenseReminderService {
   }) {
     switch (input.scheduleType) {
       case "every_minute":
-        return `Minute reminder: ${getFixedAmount(input.total)} EUR spent this minute (${input.transactionCount} transactions).`;
+        return `Minute reminder: ${formatCents(input.total)} EUR spent this minute (${input.transactionCount} transactions).`;
       case "every_hour":
-        return `Hourly reminder: ${getFixedAmount(input.total)} EUR spent this hour (${input.transactionCount} transactions).`;
+        return `Hourly reminder: ${formatCents(input.total)} EUR spent this hour (${input.transactionCount} transactions).`;
       case "end_of_month":
-        return `Monthly reminder: ${getFixedAmount(input.total)} EUR spent this month (${input.transactionCount} transactions).`;
+        return `Monthly reminder: ${formatCents(input.total)} EUR spent this month (${input.transactionCount} transactions).`;
       case "end_of_day":
       default:
         return this.getDailyReminderSummary({
@@ -415,8 +413,7 @@ class ExpenseReminderService {
     ]);
 
     const timezone = resolveReminderTimezone(sessionData?.timezone);
-    const monthlySavingsGoal =
-      getDecryptedNumber(sessionData?.monthlySavingsGoal) ?? null;
+    const monthlySavingsGoal = sessionData?.monthlySavingsGoal ?? null;
 
     const scopedExpenses = this.getScopedExpenses(
       expenses,
@@ -426,7 +423,7 @@ class ExpenseReminderService {
     );
 
     const total = scopedExpenses.reduce(
-      (acc, expense) => acc + decryptTransactionAmount(expense.amount),
+      (acc, expense) => acc + expense.amount,
       0,
     );
 

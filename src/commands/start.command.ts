@@ -15,24 +15,22 @@ import {
   TransactionType,
   IBotContext,
 } from "@/types/app-context.interface";
-import { encrypt } from "@/helpers/encrypt";
 import * as emoji from "node-emoji";
-import { getFixedAmount } from "@/helpers/getFixedAmount";
+import { formatCents, toCents } from "@/helpers/money.helper";
 import {
   getTopCategoriesByUsage,
   mergeCategories,
   sanitizeCategory,
 } from "@/helpers/categoryOptions.helper";
-import { getDecryptedNumber } from "@/helpers/encryptedNumber.helper";
 
 interface IQuickTransactionInput {
-  amount: number;
+  amountCents: number;
   type: TransactionType;
   category?: string;
 }
 
 interface IPendingQuickTransaction {
-  amount: number;
+  amountCents: number;
   type: TransactionType;
   categories: string[];
   awaitingCustomCategory?: boolean;
@@ -79,11 +77,9 @@ export class StartCommand extends Command {
     }
 
     const sign = match[1];
-    const integerPart = match[2].replace(/[ \u00A0]/g, "");
-    const decimalPart = match[3] ? `.${match[3].slice(1)}` : "";
-    const amount = Number(`${integerPart}${decimalPart}`);
+    const amountCents = toCents(`${match[2]}${match[3] ?? ""}`);
 
-    if (!Number.isFinite(amount) || amount <= 0) {
+    if (amountCents == null || amountCents <= 0) {
       return null;
     }
 
@@ -91,7 +87,7 @@ export class StartCommand extends Command {
     const type: TransactionType = sign === "+" ? "income" : "expense";
 
     return {
-      amount: Number(amount.toFixed(2)),
+      amountCents,
       type,
       ...(category ? { category } : {}),
     };
@@ -151,7 +147,7 @@ export class StartCommand extends Command {
   ) {
     const categories = await this.getCategoryPickerOptions(key, input.type);
     const transactionTypeLabel = input.type === "income" ? "income" : "expense";
-    const amountLabel = getFixedAmount(input.amount);
+    const amountLabel = formatCents(input.amountCents);
 
     const sent = await ctx.reply(
       `Choose category for ${transactionTypeLabel} ${amountLabel} ${CURRENCIES.EURO}:`,
@@ -159,7 +155,7 @@ export class StartCommand extends Command {
     );
 
     this.pendingQuickTransactions.set(key, {
-      amount: input.amount,
+      amountCents: input.amountCents,
       type: input.type,
       categories,
       awaitingCustomCategory: false,
@@ -222,7 +218,7 @@ export class StartCommand extends Command {
     const categoryLabel = category.startsWith("#") ? category : `#${category}`;
     const transaction: IAmountData = {
       id: Date.now(),
-      amount: encrypt(getFixedAmount(input.amount)),
+      amount: input.amountCents,
       category,
       created_date: new Date(),
       currency: CURRENCIES.EURO,
@@ -230,7 +226,7 @@ export class StartCommand extends Command {
 
     if (input.type === "income") {
       await transactionService.addIncome(key, transaction);
-      return `+${getFixedAmount(input.amount)} ${CURRENCIES.EURO} | ${categoryLabel}`;
+      return `+${formatCents(input.amountCents)} ${CURRENCIES.EURO} | ${categoryLabel}`;
     }
 
     await transactionService.addExpense(key, transaction);
@@ -244,7 +240,7 @@ export class StartCommand extends Command {
       computeExpenseLimitResult({
         expenses,
         income,
-        monthlySavingsGoal: getDecryptedNumber(ctx.session.monthlySavingsGoal),
+        monthlySavingsGoal: ctx.session.monthlySavingsGoal,
         savingsGoalCarryoverDate: ctx.session.savingsGoalCarryoverDate,
         savingsGoalCarryoverAmount: ctx.session.savingsGoalCarryoverAmount,
         savingsGoalExtraAmount: ctx.session.savingsGoalExtraAmount,
@@ -265,12 +261,12 @@ export class StartCommand extends Command {
     const limitStatusLine = !isLimitConfigured
       ? `Use /${COMMAND_NAMES.SAVINGS_GOAL} <monthly-goal> to configure today's limit.`
       : isLimitExceeded
-        ? `${emoji.get("warning")} ${getFixedAmount(overspentAmount)} ${CURRENCIES.EURO} over today's limit`
-        : `Today: ${getFixedAmount(totalExpensesToday)} / ${getFixedAmount(dailyLimit)} ${CURRENCIES.EURO}`;
+        ? `${emoji.get("warning")} ${formatCents(overspentAmount)} ${CURRENCIES.EURO} over today's limit`
+        : `Today: ${formatCents(totalExpensesToday)} / ${formatCents(dailyLimit)} ${CURRENCIES.EURO}`;
 
     const monthProgressLine =
       snapshot != null
-        ? `Available this month: ${getFixedAmount(snapshot.displayRemainingExpenseBudget)} ${CURRENCIES.EURO}`
+        ? `Available this month: ${formatCents(snapshot.displayRemainingExpenseBudget)} ${CURRENCIES.EURO}`
         : `Available this month: Set /${COMMAND_NAMES.SAVINGS_GOAL} <monthly-goal>.`;
     const incomeExceededLine =
       snapshot != null && snapshot.isIncomeExceeded
@@ -281,7 +277,7 @@ export class StartCommand extends Command {
     const statusToMonthSeparator =
       snapshot != null && snapshot.isIncomeExceeded ? "\n\n" : "\n";
 
-    return `-${getFixedAmount(input.amount)} ${CURRENCIES.EURO} — ${categoryLabel}${categoryToStatusSeparator}${limitStatusLine}${statusToMonthSeparator}${monthProgressLine}${incomeExceededLine}`;
+    return `-${formatCents(input.amountCents)} ${CURRENCIES.EURO} — ${categoryLabel}${categoryToStatusSeparator}${limitStatusLine}${statusToMonthSeparator}${monthProgressLine}${incomeExceededLine}`;
   }
 
   handle(): void {
@@ -326,7 +322,7 @@ export class StartCommand extends Command {
 
         const summary = await this.persistQuickTransaction(
           ctx,
-          { amount: pending.amount, type: pending.type },
+          { amountCents: pending.amountCents, type: pending.type },
           customCategory,
         );
 
@@ -394,7 +390,7 @@ Try these commands: /${COMMAND_NAMES.TRANSACTIONS}, /${COMMAND_NAMES.BALANCE}, /
 
         const summary = await this.persistQuickTransaction(
           ctx,
-          { amount: pending.amount, type: pending.type },
+          { amountCents: pending.amountCents, type: pending.type },
           category,
         );
 

@@ -12,10 +12,9 @@ import {
   SceneContexts,
 } from "@/types/app-context.interface";
 import { containsSlash } from "@/helpers/containsHash.helper";
-import { encrypt } from "@/helpers/encrypt";
 import { containsStrictNumber } from "@/helpers/containsStrictNumber.helper";
 import * as emoji from "node-emoji";
-import { getFixedAmount } from "@/helpers/getFixedAmount";
+import { formatCents, toCents } from "@/helpers/money.helper";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
 import { transactionService } from "@/modules/transaction";
 import { sumTransactionsForDay } from "@/helpers/transactionTotals.helper";
@@ -225,9 +224,19 @@ ${emoji.get("small_red_triangle_down")} Press Exit button to leave;`,
         return;
       }
 
+      const amountCents = toCents(textAsNumber);
+
+      if (amountCents == null || amountCents <= 0) {
+        await ctx.replyWithMarkdown(
+          TRANSACTION_RULES_MESSAGE,
+          Markup.inlineKeyboard([EXIT_BUTTON]),
+        );
+        return;
+      }
+
       const transaction: IAmountData = {
         id: Date.now(),
-        amount: encrypt(getFixedAmount(textAsNumber)),
+        amount: amountCents,
         category: state.chosenCategory,
         created_date: new Date(),
         currency: CURRENCIES.EURO,
@@ -235,18 +244,18 @@ ${emoji.get("small_red_triangle_down")} Press Exit button to leave;`,
 
       await transactionService.addIncome(key, transaction);
       const income = await transactionService.getIncomeByKey(key);
-      const totalIncomeToday = sumTransactionsForDay(income);
+      const totalIncomeTodayCents = sumTransactionsForDay(income);
       const monospaceTransactionId = "`" + transaction.id + "`";
 
       await ctx.replyWithMarkdown(
         `Noted ${emoji.get("white_check_mark")}
 
 ${emoji.get("id")} Transaction Id: ${monospaceTransactionId};
-${emoji.get("money_with_wings")} You've earned: *${getFixedAmount(
-          textAsNumber,
+${emoji.get("money_with_wings")} You've earned: *${formatCents(
+          amountCents,
         )} ${CURRENCIES.EURO}*;
-${emoji.get("money_with_wings")} Todays Income Total: *${getFixedAmount(
-          totalIncomeToday,
+${emoji.get("money_with_wings")} Todays Income Total: *${formatCents(
+          totalIncomeTodayCents,
         )} ${CURRENCIES.EURO}*;
 ${emoji.get("label")} Category: *${state.chosenCategory}*`,
         Markup.inlineKeyboard([

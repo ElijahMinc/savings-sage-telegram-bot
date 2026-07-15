@@ -4,15 +4,11 @@ import { IBotContext } from "@/types/app-context.interface";
 import { Command } from "./command.class";
 import { COMMAND_NAMES } from "@/constants";
 import { containsStrictNumber } from "@/helpers/containsStrictNumber.helper";
-import { getFixedAmount } from "@/helpers/getFixedAmount";
+import { formatCents, toCents } from "@/helpers/money.helper";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
 import { transactionService } from "@/modules/transaction";
 import { getLimitSnapshot } from "@/helpers/limitSnapshot.helper";
 import { getDaysInMonth } from "date-fns";
-import {
-  encryptNumber,
-  getDecryptedNumber,
-} from "@/helpers/encryptedNumber.helper";
 import { sumTransactionsForMonth } from "@/helpers/transactionTotals.helper";
 
 export class SavingsGoalCommand extends Command {
@@ -48,22 +44,20 @@ export class SavingsGoalCommand extends Command {
           return;
         }
 
-        const goal = Number(rawInput);
+        const goalCents = toCents(rawInput);
 
-        if (!Number.isFinite(goal) || goal <= 0) {
+        if (goalCents == null || goalCents <= 0) {
           await ctx.reply("Monthly savings goal must be greater than 0.");
           return;
         }
 
-        ctx.session.monthlySavingsGoal = encryptNumber(goal);
+        ctx.session.monthlySavingsGoal = goalCents;
         ctx.session.savingsGoalCarryoverDate = undefined;
         ctx.session.savingsGoalExtraAmount = undefined;
         ctx.session.savingsGoalCarryoverAmount = undefined;
       }
 
-      const monthlySavingsGoal = getDecryptedNumber(
-        ctx.session.monthlySavingsGoal,
-      );
+      const monthlySavingsGoal = ctx.session.monthlySavingsGoal;
 
       if (monthlySavingsGoal == null) {
         await ctx.reply(
@@ -72,8 +66,7 @@ export class SavingsGoalCommand extends Command {
         return;
       }
 
-      const savingsGoalExtraAmount =
-        getDecryptedNumber(ctx.session.savingsGoalExtraAmount) ?? 0;
+      const savingsGoalExtraAmount = ctx.session.savingsGoalExtraAmount ?? 0;
 
       const [income, expenses] = await Promise.all([
         transactionService.getIncomeByKey(key),
@@ -94,29 +87,29 @@ export class SavingsGoalCommand extends Command {
         snapshot.remainingExpenseBudget < 0
           ? `\n\n${emoji.get(
               "warning",
-            )} Warning: expense budget is already exceeded by ${getFixedAmount(
+            )} Warning: expense budget is already exceeded by ${formatCents(
               Math.abs(snapshot.remainingExpenseBudget),
             )} EUR.`
           : "";
 
       await ctx.reply(
-        `${emoji.get("dart")} Monthly savings goal: ${getFixedAmount(
+        `${emoji.get("dart")} Monthly savings goal: ${formatCents(
           monthlySavingsGoal,
         )} EUR.
 
-${emoji.get("chart_with_upwards_trend")} Current month income: ${getFixedAmount(
+${emoji.get("chart_with_upwards_trend")} Current month income: ${formatCents(
           monthlyIncome,
         )} EUR.
-${emoji.get("money_with_wings")} Current month expenses: ${getFixedAmount(
+${emoji.get("money_with_wings")} Current month expenses: ${formatCents(
           monthlyExpenses,
         )} EUR.
 
-${emoji.get("gem")} Saved above goal: ${getFixedAmount(savingsGoalExtraAmount)} EUR.
+${emoji.get("gem")} Saved above goal: ${formatCents(savingsGoalExtraAmount)} EUR.
 
-${emoji.get("purse")} Remaining expense budget: ${getFixedAmount(
+${emoji.get("purse")} Remaining expense budget: ${formatCents(
           snapshot.remainingExpenseBudget,
         )} EUR.
-${emoji.get("calendar")} Auto daily expense limit: ${getFixedAmount(
+${emoji.get("calendar")} Auto daily expense limit: ${formatCents(
           snapshot.autoDailyLimit,
         )} EUR for ${snapshot.remainingDays} remaining day(s).${feasibilityMessage}`,
       );
