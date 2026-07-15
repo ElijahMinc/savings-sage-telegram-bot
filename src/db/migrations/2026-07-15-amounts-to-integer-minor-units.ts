@@ -32,15 +32,10 @@ function decryptLegacyAmount(hash: LegacyEncryptedAmount): number {
     );
   }
 
-  const decipher = crypto.createDecipheriv(
-    algorithm,
-    secretKey,
-    Buffer.from(hash.iv, "hex"),
-  );
-  const decrypted = Buffer.concat([
-    decipher.update(Buffer.from(hash.content, "hex")),
-    decipher.final(),
-  ]);
+  const iv = Uint8Array.from(Buffer.from(hash.iv, "hex"));
+  const content = Uint8Array.from(Buffer.from(hash.content, "hex"));
+  const decipher = crypto.createDecipheriv(algorithm, secretKey, iv);
+  const decrypted = Buffer.concat([decipher.update(content), decipher.final()]);
   const parsed = Number(decrypted.toString());
 
   if (!Number.isFinite(parsed)) {
