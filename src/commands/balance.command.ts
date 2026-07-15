@@ -4,13 +4,15 @@ import { Command } from "./command.class";
 import { COMMAND_NAMES } from "@/constants";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
 import { transactionService } from "@/modules/transaction";
-import { formatCents } from "@/helpers/money.helper";
-import { getDaysInMonth } from "date-fns";
-import { getLimitSnapshot } from "@/helpers/limitSnapshot.helper";
+import { formatAmount } from "@/helpers/money.helper";
 import {
-  sumTransactionsForDay,
-  sumTransactionsForMonth,
-} from "@/helpers/transactionTotals.helper";
+  endOfDay,
+  endOfMonth,
+  getDaysInMonth,
+  startOfDay,
+  startOfMonth,
+} from "date-fns";
+import { getLimitSnapshot } from "@/helpers/limitSnapshot.helper";
 import * as emoji from "node-emoji";
 
 export class BalanceCommand extends Command {
@@ -27,16 +29,22 @@ export class BalanceCommand extends Command {
         return;
       }
 
-      const [expenses, income] = await Promise.all([
-        transactionService.getExpensesByKey(key),
-        transactionService.getIncomeByKey(key),
+      const now = new Date();
+      const [spentToday, monthlyIncome, monthlyExpenses] = await Promise.all([
+        transactionService.sumExpensesInRange(key, startOfDay(now), endOfDay(now)),
+        transactionService.sumIncomeInRange(
+          key,
+          startOfMonth(now),
+          endOfMonth(now),
+        ),
+        transactionService.sumExpensesInRange(
+          key,
+          startOfMonth(now),
+          endOfMonth(now),
+        ),
       ]);
 
-      const spentToday = sumTransactionsForDay(expenses);
-      const monthlyIncome = sumTransactionsForMonth(income);
-      const monthlyExpenses = sumTransactionsForMonth(expenses);
       const monthlySavingsGoal = ctx.session.monthlySavingsGoal;
-      const now = new Date();
       const dailyLimitSnapshot =
         monthlySavingsGoal != null
           ? getLimitSnapshot({
@@ -51,17 +59,17 @@ export class BalanceCommand extends Command {
         dailyLimitSnapshot != null ? dailyLimitSnapshot.autoDailyLimit : null;
       const todayLine =
         amountPerDay != null
-          ? `Today: ${formatCents(spentToday)} / ${formatCents(amountPerDay)} EUR`
-          : `Today: ${formatCents(spentToday)} EUR`;
+          ? `Today: ${formatAmount(spentToday)} / ${formatAmount(amountPerDay)} EUR`
+          : `Today: ${formatAmount(spentToday)} EUR`;
 
       const overspendAmount = monthlyExpenses - monthlyIncome;
       const savingsGoalLine =
         monthlySavingsGoal != null
-          ? `${formatCents(monthlySavingsGoal)} EUR`
+          ? `${formatAmount(monthlySavingsGoal)} EUR`
           : `Not set. Use /${COMMAND_NAMES.SAVINGS_GOAL} <monthly_savings_goal>.`;
       const monthBalanceWithSavingsGoalLine =
         monthlySavingsGoal != null
-          ? `${formatCents(monthlyIncome - monthlyExpenses - monthlySavingsGoal)} EUR`
+          ? `${formatAmount(monthlyIncome - monthlyExpenses - monthlySavingsGoal)} EUR`
           : `Not available. Set /${COMMAND_NAMES.SAVINGS_GOAL} <monthly_savings_goal>.`;
 
       const message =
@@ -70,8 +78,8 @@ export class BalanceCommand extends Command {
 
 ${todayLine}
 
-${emoji.get("warning")} Over budget by ${formatCents(overspendAmount)} EUR
-(Income ${formatCents(monthlyIncome)} / Expenses ${formatCents(monthlyExpenses)})
+${emoji.get("warning")} Over budget by ${formatAmount(overspendAmount)} EUR
+(Income ${formatAmount(monthlyIncome)} / Expenses ${formatAmount(monthlyExpenses)})
 
 Month balance (with savings goal): ${monthBalanceWithSavingsGoalLine}
 
@@ -80,8 +88,8 @@ Savings goal: ${savingsGoalLine}`
 
 ${todayLine}
 
-Month balance: ${formatCents(monthlyIncome - monthlyExpenses)} EUR ${emoji.get("white_check_mark")}
-(${formatCents(monthlyIncome)} in / ${formatCents(monthlyExpenses)} out)
+Month balance: ${formatAmount(monthlyIncome - monthlyExpenses)} EUR ${emoji.get("white_check_mark")}
+(${formatAmount(monthlyIncome)} in / ${formatAmount(monthlyExpenses)} out)
 
 Month balance (with savings goal): ${monthBalanceWithSavingsGoalLine}
 

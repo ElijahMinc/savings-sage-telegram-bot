@@ -8,7 +8,7 @@ export enum CURRENCIES {
 }
 
 interface ExpenseTransactionScene extends Scenes.SceneSessionData {
-  pendingAmountCents?: number;
+  pendingAmount?: number;
   pendingAmountLabel?: string;
   pendingCategories?: string[];
   awaitingCustomCategory?: boolean;

@@ -14,9 +14,13 @@ import {
 } from "@/types/app-context.interface";
 import { containsSlash } from "@/helpers/containsHash.helper";
 import * as emoji from "node-emoji";
-import { formatCents, toCents } from "@/helpers/money.helper";
+import { formatAmount, parseAmount } from "@/helpers/money.helper";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
-import { transactionService, computeExpenseLimitResult } from "@/modules/transaction";
+import {
+  transactionService,
+  computeExpenseLimitResult,
+} from "@/modules/transaction";
+import { endOfDay, endOfMonth, startOfDay, startOfMonth } from "date-fns";
 import {
   getTopCategoriesByUsage,
   mergeCategories,
@@ -29,12 +33,12 @@ enum TRANSACTION_COMMANDS {
 }
 
 interface IExpenseInput {
-  amountCents: number;
+  amount: number;
   category?: string;
 }
 
 interface IExpenseSceneState {
-  pendingAmountCents?: number;
+  pendingAmount?: number;
   pendingAmountLabel?: string;
   pendingCategories?: string[];
   awaitingCustomCategory?: boolean;
@@ -62,14 +66,14 @@ export class ExpenseTransactionScene extends Scenario {
   }
 
   private resetState(state: IExpenseSceneState) {
-    state.pendingAmountCents = undefined;
+    state.pendingAmount = undefined;
     state.pendingAmountLabel = undefined;
     state.pendingCategories = undefined;
     state.awaitingCustomCategory = false;
   }
 
-  private formatAmountForPrompt(amountCents: number) {
-    const fixed = formatCents(amountCents);
+  private formatAmountForPrompt(amount: number) {
+    const fixed = formatAmount(amount);
     const [integerPart, decimalPart] = fixed.split(".");
     const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 
@@ -95,16 +99,16 @@ export class ExpenseTransactionScene extends Scenario {
       return null;
     }
 
-    const amountCents = toCents(`${match[1]}${match[2] ?? ""}`);
+    const amount = parseAmount(`${match[1]}${match[2] ?? ""}`);
 
-    if (amountCents == null || amountCents <= 0) {
+    if (amount == null || amount <= 0) {
       return null;
     }
 
     const category = sanitizeCategory(match[3]);
 
     return {
-      amountCents,
+      amount,
       ...(category ? { category } : {}),
     };
   }
@@ -151,14 +155,14 @@ export class ExpenseTransactionScene extends Scenario {
   private async showCategoryPicker(
     ctx: SceneContexts<"ExpenseTransactionScene">,
     key: string,
-    amountCents: number,
+    amount: number,
   ) {
     const state = this.getState(ctx);
     const recentCategories = await this.getRecentCategories(key);
     const categories = this.getCategoriesForPicker(recentCategories);
-    const amountLabel = this.formatAmountForPrompt(amountCents);
+    const amountLabel = this.formatAmountForPrompt(amount);
 
-    state.pendingAmountCents = amountCents;
+    state.pendingAmount = amount;
     state.pendingAmountLabel = amountLabel;
     state.pendingCategories = categories;
     state.awaitingCustomCategory = false;
@@ -171,7 +175,7 @@ export class ExpenseTransactionScene extends Scenario {
 
   private async saveExpenseTransaction(
     ctx: SceneContexts<"ExpenseTransactionScene">,
-    amountCents: number,
+    amount: number,
     category: string,
   ) {
     const key = getSessionKeyFromContext(ctx);
@@ -183,7 +187,7 @@ export class ExpenseTransactionScene extends Scenario {
 
     const transaction: IAmountData = {
       id: Date.now(),
-      amount: amountCents,
+      amount: amount,
       category,
       created_date: new Date(),
       currency: CURRENCIES.EURO,
@@ -191,29 +195,46 @@ export class ExpenseTransactionScene extends Scenario {
 
     await transactionService.addExpense(key, transaction);
 
-    const [expenses, income] = await Promise.all([
-      transactionService.getExpensesByKey(key),
-      transactionService.getIncomeByKey(key),
-    ]);
+    const now = new Date();
+    const dayStart = startOfDay(now);
+    const dayEnd = endOfDay(now);
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
+    const [totalExpensesToday, monthlyExpenses, monthlyIncome] =
+      await Promise.all([
+        transactionService.sumExpensesInRange(key, dayStart, dayEnd),
+        transactionService.sumExpensesInRange(key, monthStart, monthEnd),
+        transactionService.sumIncomeInRange(key, monthStart, monthEnd),
+      ]);
 
-    const { totalExpensesToday, dailyLimit, isLimitExceeded, overspentAmount, snapshot, sessionUpdates } =
-      computeExpenseLimitResult({
-        expenses,
-        income,
-        monthlySavingsGoal: ctx.session.monthlySavingsGoal,
-        savingsGoalCarryoverDate: ctx.session.savingsGoalCarryoverDate,
-        savingsGoalCarryoverAmount: ctx.session.savingsGoalCarryoverAmount,
-        savingsGoalExtraAmount: ctx.session.savingsGoalExtraAmount,
-      });
+    const {
+      dailyLimit,
+      isLimitExceeded,
+      overspentAmount,
+      snapshot,
+      sessionUpdates,
+    } = computeExpenseLimitResult({
+      totalExpensesToday,
+      monthlyExpenses,
+      monthlyIncome,
+      monthlySavingsGoal: ctx.session.monthlySavingsGoal,
+      savingsGoalCarryoverDate: ctx.session.savingsGoalCarryoverDate,
+      savingsGoalCarryoverAmount: ctx.session.savingsGoalCarryoverAmount,
+      savingsGoalExtraAmount: ctx.session.savingsGoalExtraAmount,
+      now,
+    });
 
     if (sessionUpdates.savingsGoalExtraAmount !== undefined) {
-      ctx.session.savingsGoalExtraAmount = sessionUpdates.savingsGoalExtraAmount;
+      ctx.session.savingsGoalExtraAmount =
+        sessionUpdates.savingsGoalExtraAmount;
     }
     if (sessionUpdates.savingsGoalCarryoverDate !== undefined) {
-      ctx.session.savingsGoalCarryoverDate = sessionUpdates.savingsGoalCarryoverDate;
+      ctx.session.savingsGoalCarryoverDate =
+        sessionUpdates.savingsGoalCarryoverDate;
     }
     if (sessionUpdates.savingsGoalCarryoverAmount !== undefined) {
-      ctx.session.savingsGoalCarryoverAmount = sessionUpdates.savingsGoalCarryoverAmount;
+      ctx.session.savingsGoalCarryoverAmount =
+        sessionUpdates.savingsGoalCarryoverAmount;
     }
 
     const state = this.getState(ctx);
@@ -224,12 +245,12 @@ export class ExpenseTransactionScene extends Scenario {
     const limitStatusLine = !isLimitConfigured
       ? `Use /${COMMAND_NAMES.SAVINGS_GOAL} <monthly-goal> to configure today's limit.`
       : isLimitExceeded
-        ? `${emoji.get("warning")} ${formatCents(overspentAmount)} ${CURRENCIES.EURO} over today's limit`
-        : `Today: ${formatCents(totalExpensesToday)} / ${formatCents(dailyLimit)} ${CURRENCIES.EURO}`;
+        ? `${emoji.get("warning")} ${formatAmount(overspentAmount)} ${CURRENCIES.EURO} over today's limit`
+        : `Today: ${formatAmount(totalExpensesToday)} / ${formatAmount(dailyLimit)} ${CURRENCIES.EURO}`;
 
     const monthProgressLine =
       snapshot != null
-        ? `Available this month: ${formatCents(snapshot.displayRemainingExpenseBudget)} ${CURRENCIES.EURO}`
+        ? `Available this month: ${formatAmount(snapshot.displayRemainingExpenseBudget)} ${CURRENCIES.EURO}`
         : `Available this month: Set /${COMMAND_NAMES.SAVINGS_GOAL} <monthly-goal>.`;
     const incomeExceededLine =
       snapshot != null && snapshot.isIncomeExceeded
@@ -244,7 +265,7 @@ export class ExpenseTransactionScene extends Scenario {
       snapshot != null && snapshot.isIncomeExceeded ? "\n\n" : "\n";
 
     await ctx.reply(
-      `-${formatCents(amountCents)} ${CURRENCIES.EURO} — ${categoryLabel}${categoryToStatusSeparator}${limitStatusLine}${statusToMonthSeparator}${monthProgressLine}${incomeExceededLine}`,
+      `-${formatAmount(amount)} ${CURRENCIES.EURO} — ${categoryLabel}${categoryToStatusSeparator}${limitStatusLine}${statusToMonthSeparator}${monthProgressLine}${incomeExceededLine}`,
       Markup.inlineKeyboard([
         [
           Markup.button.callback(
@@ -290,7 +311,7 @@ export class ExpenseTransactionScene extends Scenario {
 
       const state = this.getState(ctx);
 
-      if (state.pendingAmountCents == null) {
+      if (state.pendingAmount == null) {
         await this.promptForAmount(ctx, "Enter the expense amount first.");
         return;
       }
@@ -312,7 +333,10 @@ export class ExpenseTransactionScene extends Scenario {
 
         const state = this.getState(ctx);
 
-        if (state.pendingAmountCents == null || !state.pendingCategories?.length) {
+        if (
+          state.pendingAmount == null ||
+          !state.pendingCategories?.length
+        ) {
           await this.promptForAmount(ctx, "Enter the expense amount first.");
           return;
         }
@@ -328,11 +352,15 @@ export class ExpenseTransactionScene extends Scenario {
             return;
           }
 
-          await this.showCategoryPicker(ctx, key, state.pendingAmountCents);
+          await this.showCategoryPicker(ctx, key, state.pendingAmount);
           return;
         }
 
-        await this.saveExpenseTransaction(ctx, state.pendingAmountCents, category);
+        await this.saveExpenseTransaction(
+          ctx,
+          state.pendingAmount,
+          category,
+        );
       },
     );
 
@@ -413,7 +441,7 @@ export class ExpenseTransactionScene extends Scenario {
 
       const state = this.getState(ctx);
 
-      if (state.awaitingCustomCategory && state.pendingAmountCents != null) {
+      if (state.awaitingCustomCategory && state.pendingAmount != null) {
         const customCategory = sanitizeCategory(messageText);
 
         if (!customCategory) {
@@ -428,7 +456,7 @@ export class ExpenseTransactionScene extends Scenario {
 
         await this.saveExpenseTransaction(
           ctx,
-          state.pendingAmountCents,
+          state.pendingAmount,
           customCategory,
         );
         return;
@@ -447,13 +475,13 @@ export class ExpenseTransactionScene extends Scenario {
       if (parsedInput.category) {
         await this.saveExpenseTransaction(
           ctx,
-          parsedInput.amountCents,
+          parsedInput.amount,
           parsedInput.category,
         );
         return;
       }
 
-      await this.showCategoryPicker(ctx, key, parsedInput.amountCents);
+      await this.showCategoryPicker(ctx, key, parsedInput.amount);
     });
   }
 }

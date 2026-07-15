@@ -119,6 +119,14 @@ export class TransactionService {
   ) {
     return await this.updateTransactionById(key, "income", id, update);
   }
+
+  async sumExpensesInRange(key: string, start: Date, end: Date) {
+    return this.repository.sumInRange(key, "expense", start, end);
+  }
+
+  async sumIncomeInRange(key: string, start: Date, end: Date) {
+    return this.repository.sumInRange(key, "income", start, end);
+  }
 }
 
 export const transactionService = new TransactionService();

@@ -9,7 +9,7 @@ import {
   sanitizeCategory,
 } from "@/helpers/categoryOptions.helper";
 import { containsSlash } from "@/helpers/containsHash.helper";
-import { formatCents, toCents } from "@/helpers/money.helper";
+import { formatAmount, parseAmount } from "@/helpers/money.helper";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
 import { Scenario } from "@/scenes/scene.class";
 import { transactionService } from "@/modules/transaction";
@@ -21,7 +21,7 @@ function formatTransactionLine(
   rowIndex: number,
   page: number,
 ): string {
-  const amount = formatCents(item.amount);
+  const amount = formatAmount(item.amount);
   const sign = item.type === "income" ? "+" : "-";
   const category = getTransactionCategory(item) ?? "No category";
   const timestamp = format(new Date(item.created_date), "dd.MM HH:mm");
@@ -241,7 +241,7 @@ export class TransactionsScene extends Scenario {
     state.targetTransactionType = type;
     state.editMode = undefined;
 
-    const amount = formatCents(transaction.amount);
+    const amount = formatAmount(transaction.amount);
     const sign = transaction.type === "income" ? "+" : "-";
     const category = getTransactionCategory(transaction) ?? "No category";
 
@@ -274,7 +274,7 @@ export class TransactionsScene extends Scenario {
     state.targetTransactionType = type;
     state.editMode = undefined;
 
-    const amount = formatCents(transaction.amount);
+    const amount = formatAmount(transaction.amount);
     const sign = transaction.type === "income" ? "+" : "-";
     const category = getTransactionCategory(transaction) ?? "No category";
 
@@ -528,9 +528,9 @@ export class TransactionsScene extends Scenario {
       }
 
       if (state.editMode === "amount") {
-        const parsedAmountCents = toCents(messageText);
+        const parsedAmount = parseAmount(messageText);
 
-        if (parsedAmountCents == null || parsedAmountCents <= 0) {
+        if (parsedAmount == null || parsedAmount <= 0) {
           await this.upsertPanelMessage(
             ctx,
             "Invalid amount. Enter number (for example: 450, 450.50, 450,50).",
@@ -543,7 +543,7 @@ export class TransactionsScene extends Scenario {
           key,
           state.targetTransactionType,
           state.targetTransactionId,
-          parsedAmountCents,
+          parsedAmount,
         );
 
         await this.renderList(

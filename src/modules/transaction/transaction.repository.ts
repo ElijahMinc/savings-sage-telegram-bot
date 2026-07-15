@@ -112,6 +112,41 @@ export class TransactionRepository {
     await this.transactions.deleteMany({ key, type });
   }
 
+  async sumInRange(
+    key: string,
+    type: TransactionType,
+    start: Date,
+    end: Date,
+  ): Promise<number> {
+    const [result] = await this.transactions
+      .aggregate<{ total: number }>([
+        {
+          $match: {
+            key,
+            type,
+            created_date: { $gte: start, $lte: end },
+          },
+        },
+        { $group: { _id: null, total: { $sum: "$amount" } } },
+      ])
+      .toArray();
+
+    return result?.total ?? 0;
+  }
+
+  async countInRange(
+    key: string,
+    type: TransactionType,
+    start: Date,
+    end: Date,
+  ): Promise<number> {
+    return this.transactions.countDocuments({
+      key,
+      type,
+      created_date: { $gte: start, $lte: end },
+    });
+  }
+
   async getTransactionsPageByKey(key: string, page: number, pageSize: number) {
     const skip = Math.max(0, page) * pageSize;
 

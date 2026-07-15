@@ -2,7 +2,7 @@
 import { IAmountData } from "@/types/app-context.interface";
 import { filterDataForDateRange } from "@/helpers/filterDataForDateRange";
 import { formatDate } from "@/helpers/formatDate.helper";
-import { formatCents } from "@/helpers/money.helper";
+import { formatAmount } from "@/helpers/money.helper";
 import { getTransactionDateFormat } from "@/helpers/getTransactionDateFormat";
 import { format, isSameDay, isSameMonth } from "date-fns";
 import { Stream } from "stream";
@@ -41,13 +41,13 @@ class XLMXService {
 
       return {
         id: item.id,
-        amount: formatCents(item.amount),
+        amount: formatAmount(item.amount),
         category: item.category,
         created_date: formatDate(item.created_date),
         currency: item.currency,
       };
     });
-    transformedData.push({ id: "Total", amount: formatCents(total) } as any);
+    transformedData.push({ id: "Total", amount: formatAmount(total) } as any);
 
     const ws = XLSX.utils.json_to_sheet(transformedData);
 
@@ -118,7 +118,7 @@ class XLMXService {
           formatDate(item.created_date),
           "Income",
           item.category || "Other",
-          `+${formatCents(item.amount)}`,
+          `+${formatAmount(item.amount)}`,
           item.currency,
         ],
       })),
@@ -128,7 +128,7 @@ class XLMXService {
           formatDate(item.created_date),
           "Expense",
           item.category || "Other",
-          `-${formatCents(item.amount)}`,
+          `-${formatAmount(item.amount)}`,
           item.currency,
         ],
       })),
@@ -162,25 +162,25 @@ class XLMXService {
 
     const savingsGoalValue =
       monthlySavingsGoal != null
-        ? `${formatCents(monthlySavingsGoal)} EUR`
+        ? `${formatAmount(monthlySavingsGoal)} EUR`
         : "not set";
-    const currentSurplusValue = `${formatCents(net)} EUR`;
+    const currentSurplusValue = `${formatAmount(net)} EUR`;
     const goalStatusValue =
       monthlySavingsGoal == null
         ? "not set"
         : net >= monthlySavingsGoal
           ? "ACHIEVED ✅"
-          : `REMAINING ${formatCents(monthlySavingsGoal - net)} EUR`;
+          : `REMAINING ${formatAmount(monthlySavingsGoal - net)} EUR`;
 
     const rows: (string | number)[][] = [
       ["Date", "Type", "Category", "Amount", "Currency"],
       ...transactionRows.map((item) => item.row),
       [],
       ["--- SUMMARY ---"],
-      ["TOTAL INCOME:", `${formatCents(totalIncome)} EUR`],
-      ["TOTAL EXPENSES:", `${formatCents(totalExpenses)} EUR`],
+      ["TOTAL INCOME:", `${formatAmount(totalIncome)} EUR`],
+      ["TOTAL EXPENSES:", `${formatAmount(totalExpenses)} EUR`],
       ["--------------------------------"],
-      ["NET RESULT:", `${formatCents(net)} EUR`],
+      ["NET RESULT:", `${formatAmount(net)} EUR`],
       [],
       ["Expenses / Income:", expenseIncomePercent],
       [],
@@ -193,7 +193,7 @@ class XLMXService {
         const percent =
           totalExpenses > 0 ? Math.round((amount / totalExpenses) * 100) : 0;
         rows.push([
-          `${index + 1}. ${category} - ${formatCents(amount)} EUR (${percent}%)`,
+          `${index + 1}. ${category} - ${formatAmount(amount)} EUR (${percent}%)`,
         ]);
       });
     } else {

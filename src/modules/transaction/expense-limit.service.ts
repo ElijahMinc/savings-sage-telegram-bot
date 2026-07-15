@@ -1,10 +1,5 @@
 import { format, getDaysInMonth } from "date-fns";
-import { IAmountData } from "@/types/app-context.interface";
 import { getLimitSnapshot, ILimitSnapshot } from "@/helpers/limitSnapshot.helper";
-import {
-  sumTransactionsForDay,
-  sumTransactionsForMonth,
-} from "@/helpers/transactionTotals.helper";
 
 export interface IExpenseLimitSessionUpdates {
   savingsGoalExtraAmount?: number;
@@ -22,17 +17,17 @@ export interface IExpenseLimitResult {
 }
 
 export function computeExpenseLimitResult(input: {
-  expenses: IAmountData[];
-  income: IAmountData[];
+  totalExpensesToday: number;
+  monthlyExpenses: number;
+  monthlyIncome: number;
   monthlySavingsGoal: number | null | undefined;
   savingsGoalCarryoverDate?: string;
   savingsGoalCarryoverAmount?: number;
   savingsGoalExtraAmount?: number;
+  now?: Date;
 }): IExpenseLimitResult {
-  const now = new Date();
-  const totalExpensesToday = sumTransactionsForDay(input.expenses, now);
-  const monthlyIncome = sumTransactionsForMonth(input.income, now);
-  const monthlyExpenses = sumTransactionsForMonth(input.expenses, now);
+  const now = input.now ?? new Date();
+  const { totalExpensesToday, monthlyIncome, monthlyExpenses } = input;
   const monthlySavingsGoal = input.monthlySavingsGoal ?? null;
 
   const snapshot =

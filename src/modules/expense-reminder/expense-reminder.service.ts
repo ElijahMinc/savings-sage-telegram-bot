@@ -9,7 +9,7 @@ import {
   resolveReminderTimezone,
 } from "@/helpers/reminderSchedule.helper";
 import { expenseReminderRepository } from "./expense-reminder.repository";
-import { formatCents } from "@/helpers/money.helper";
+import { formatAmount } from "@/helpers/money.helper";
 import { IAmountData } from "@/types/app-context.interface";
 import { getLimitSnapshot } from "@/helpers/limitSnapshot.helper";
 import { transactionService } from "@/modules/transaction";
@@ -299,14 +299,14 @@ class ExpenseReminderService {
 
     if (realMonthlyBalance < 0) {
       return (
-        `Today: ${formatCents(input.total)} EUR (${input.transactionCount} transactions)\n\n` +
+        `Today: ${formatAmount(input.total)} EUR (${input.transactionCount} transactions)\n\n` +
         `⚠️ You are overspending your income\n` +
-        `Balance: ${formatCents(realMonthlyBalance)} EUR\n` +
-        `(Income ${formatCents(input.monthlyIncome)} / Expenses ${formatCents(input.monthlyExpenses)})`
+        `Balance: ${formatAmount(realMonthlyBalance)} EUR\n` +
+        `(Income ${formatAmount(input.monthlyIncome)} / Expenses ${formatAmount(input.monthlyExpenses)})`
       );
     }
 
-    return `Daily reminder: ${formatCents(input.total)} EUR spent today (${input.transactionCount} transactions).`;
+    return `Daily reminder: ${formatAmount(input.total)} EUR spent today (${input.transactionCount} transactions).`;
   }
 
   private getReminderSummary(input: {
@@ -318,11 +318,11 @@ class ExpenseReminderService {
   }) {
     switch (input.scheduleType) {
       case "every_minute":
-        return `Minute reminder: ${formatCents(input.total)} EUR spent this minute (${input.transactionCount} transactions).`;
+        return `Minute reminder: ${formatAmount(input.total)} EUR spent this minute (${input.transactionCount} transactions).`;
       case "every_hour":
-        return `Hourly reminder: ${formatCents(input.total)} EUR spent this hour (${input.transactionCount} transactions).`;
+        return `Hourly reminder: ${formatAmount(input.total)} EUR spent this hour (${input.transactionCount} transactions).`;
       case "end_of_month":
-        return `Monthly reminder: ${formatCents(input.total)} EUR spent this month (${input.transactionCount} transactions).`;
+        return `Monthly reminder: ${formatAmount(input.total)} EUR spent this month (${input.transactionCount} transactions).`;
       case "end_of_day":
       default:
         return this.getDailyReminderSummary({

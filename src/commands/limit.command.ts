@@ -4,12 +4,11 @@ import { IBotContext } from "@/types/app-context.interface";
 import { Command } from "./command.class";
 import { COMMAND_NAMES } from "@/constants";
 import { containsStrictNumber } from "@/helpers/containsStrictNumber.helper";
-import { formatCents, toCents } from "@/helpers/money.helper";
+import { formatAmount, parseAmount } from "@/helpers/money.helper";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
 import { transactionService } from "@/modules/transaction";
 import { getLimitSnapshot } from "@/helpers/limitSnapshot.helper";
-import { getDaysInMonth } from "date-fns";
-import { sumTransactionsForMonth } from "@/helpers/transactionTotals.helper";
+import { endOfMonth, getDaysInMonth, startOfMonth } from "date-fns";
 
 export class SavingsGoalCommand extends Command {
   constructor(public bot: Telegraf<IBotContext>) {
@@ -44,14 +43,14 @@ export class SavingsGoalCommand extends Command {
           return;
         }
 
-        const goalCents = toCents(rawInput);
+        const goal = parseAmount(rawInput);
 
-        if (goalCents == null || goalCents <= 0) {
+        if (goal == null || goal <= 0) {
           await ctx.reply("Monthly savings goal must be greater than 0.");
           return;
         }
 
-        ctx.session.monthlySavingsGoal = goalCents;
+        ctx.session.monthlySavingsGoal = goal;
         ctx.session.savingsGoalCarryoverDate = undefined;
         ctx.session.savingsGoalExtraAmount = undefined;
         ctx.session.savingsGoalCarryoverAmount = undefined;
@@ -68,13 +67,13 @@ export class SavingsGoalCommand extends Command {
 
       const savingsGoalExtraAmount = ctx.session.savingsGoalExtraAmount ?? 0;
 
-      const [income, expenses] = await Promise.all([
-        transactionService.getIncomeByKey(key),
-        transactionService.getExpensesByKey(key),
-      ]);
-      const monthlyIncome = sumTransactionsForMonth(income);
-      const monthlyExpenses = sumTransactionsForMonth(expenses);
       const now = new Date();
+      const monthStart = startOfMonth(now);
+      const monthEnd = endOfMonth(now);
+      const [monthlyIncome, monthlyExpenses] = await Promise.all([
+        transactionService.sumIncomeInRange(key, monthStart, monthEnd),
+        transactionService.sumExpensesInRange(key, monthStart, monthEnd),
+      ]);
       const snapshot = getLimitSnapshot({
         monthlyIncome,
         monthlyExpenses,
@@ -87,29 +86,29 @@ export class SavingsGoalCommand extends Command {
         snapshot.remainingExpenseBudget < 0
           ? `\n\n${emoji.get(
               "warning",
-            )} Warning: expense budget is already exceeded by ${formatCents(
+            )} Warning: expense budget is already exceeded by ${formatAmount(
               Math.abs(snapshot.remainingExpenseBudget),
             )} EUR.`
           : "";
 
       await ctx.reply(
-        `${emoji.get("dart")} Monthly savings goal: ${formatCents(
+        `${emoji.get("dart")} Monthly savings goal: ${formatAmount(
           monthlySavingsGoal,
         )} EUR.
 
-${emoji.get("chart_with_upwards_trend")} Current month income: ${formatCents(
+${emoji.get("chart_with_upwards_trend")} Current month income: ${formatAmount(
           monthlyIncome,
         )} EUR.
-${emoji.get("money_with_wings")} Current month expenses: ${formatCents(
+${emoji.get("money_with_wings")} Current month expenses: ${formatAmount(
           monthlyExpenses,
         )} EUR.
 
-${emoji.get("gem")} Saved above goal: ${formatCents(savingsGoalExtraAmount)} EUR.
+${emoji.get("gem")} Saved above goal: ${formatAmount(savingsGoalExtraAmount)} EUR.
 
-${emoji.get("purse")} Remaining expense budget: ${formatCents(
+${emoji.get("purse")} Remaining expense budget: ${formatAmount(
           snapshot.remainingExpenseBudget,
         )} EUR.
-${emoji.get("calendar")} Auto daily expense limit: ${formatCents(
+${emoji.get("calendar")} Auto daily expense limit: ${formatAmount(
           snapshot.autoDailyLimit,
         )} EUR for ${snapshot.remainingDays} remaining day(s).${feasibilityMessage}`,
       );

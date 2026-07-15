@@ -14,10 +14,10 @@ import {
 import { containsSlash } from "@/helpers/containsHash.helper";
 import { containsStrictNumber } from "@/helpers/containsStrictNumber.helper";
 import * as emoji from "node-emoji";
-import { formatCents, toCents } from "@/helpers/money.helper";
+import { formatAmount, parseAmount } from "@/helpers/money.helper";
 import { getSessionKeyFromContext } from "@/helpers/getSessionKey.helper";
 import { transactionService } from "@/modules/transaction";
-import { sumTransactionsForDay } from "@/helpers/transactionTotals.helper";
+import { endOfDay, startOfDay } from "date-fns";
 
 enum TRANSACTION_COMMANDS {
   CHOOSE_CATEGORY = "CHOOSE_CATEGORY",
@@ -224,9 +224,9 @@ ${emoji.get("small_red_triangle_down")} Press Exit button to leave;`,
         return;
       }
 
-      const amountCents = toCents(textAsNumber);
+      const amount = parseAmount(textAsNumber);
 
-      if (amountCents == null || amountCents <= 0) {
+      if (amount == null || amount <= 0) {
         await ctx.replyWithMarkdown(
           TRANSACTION_RULES_MESSAGE,
           Markup.inlineKeyboard([EXIT_BUTTON]),
@@ -236,26 +236,30 @@ ${emoji.get("small_red_triangle_down")} Press Exit button to leave;`,
 
       const transaction: IAmountData = {
         id: Date.now(),
-        amount: amountCents,
+        amount: amount,
         category: state.chosenCategory,
         created_date: new Date(),
         currency: CURRENCIES.EURO,
       };
 
       await transactionService.addIncome(key, transaction);
-      const income = await transactionService.getIncomeByKey(key);
-      const totalIncomeTodayCents = sumTransactionsForDay(income);
+      const now = new Date();
+      const totalIncomeToday = await transactionService.sumIncomeInRange(
+        key,
+        startOfDay(now),
+        endOfDay(now),
+      );
       const monospaceTransactionId = "`" + transaction.id + "`";
 
       await ctx.replyWithMarkdown(
         `Noted ${emoji.get("white_check_mark")}
 
 ${emoji.get("id")} Transaction Id: ${monospaceTransactionId};
-${emoji.get("money_with_wings")} You've earned: *${formatCents(
-          amountCents,
+${emoji.get("money_with_wings")} You've earned: *${formatAmount(
+          amount,
         )} ${CURRENCIES.EURO}*;
-${emoji.get("money_with_wings")} Todays Income Total: *${formatCents(
-          totalIncomeTodayCents,
+${emoji.get("money_with_wings")} Todays Income Total: *${formatAmount(
+          totalIncomeToday,
         )} ${CURRENCIES.EURO}*;
 ${emoji.get("label")} Category: *${state.chosenCategory}*`,
         Markup.inlineKeyboard([
@@ -276,5 +280,4 @@ ${emoji.get("label")} Category: *${state.chosenCategory}*`,
       );
     });
   }
-
 }
